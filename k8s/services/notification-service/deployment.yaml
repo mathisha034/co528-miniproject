@@ -15,8 +15,19 @@ spec:
       labels:
         app: notification-service
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: notification-service
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           image: mini_project-notification-service:latest
           imagePullPolicy: IfNotPresent
           ports:

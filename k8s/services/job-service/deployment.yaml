@@ -15,8 +15,19 @@ spec:
       labels:
         app: job-service
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: job-service
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           image: mini_project-job-service:latest
           imagePullPolicy: IfNotPresent
           ports:

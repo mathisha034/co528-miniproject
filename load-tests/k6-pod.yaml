@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k6-stress
+  namespace: miniproject
+spec:
+  containers:
+    - name: k6
+      image: grafana/k6:latest
+      imagePullPolicy: IfNotPresent
+      command: ["k6", "run", "/scripts/stress.js"]
+      volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+  restartPolicy: Never
+  volumes:
+    - name: scripts
+      configMap:
+        name: k6-test-script

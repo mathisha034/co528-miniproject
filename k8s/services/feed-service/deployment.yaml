@@ -15,8 +15,19 @@ spec:
       labels:
         app: feed-service
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: feed-service
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           image: mini_project-feed-service:latest
           imagePullPolicy: IfNotPresent
           ports:

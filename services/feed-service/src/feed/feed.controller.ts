@@ -19,7 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @Controller('feed')
 @UseGuards(JwtAuthGuard)
 export class FeedController {
-  constructor(private readonly feedService: FeedService) {}
+  constructor(private readonly feedService: FeedService) { }
 
   @Get('health')
   health() {
@@ -40,7 +40,7 @@ export class FeedController {
 
   @Post(':id/like')
   async like(@Param('id') id: string, @Request() req) {
-    return this.feedService.likePost(id, req.user.sub);
+    return this.feedService.likePost(id, req.user.sub, req.headers.authorization);
   }
 
   @Delete(':id/like')

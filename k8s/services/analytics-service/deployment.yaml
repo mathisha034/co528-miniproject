@@ -15,8 +15,19 @@ spec:
       labels:
         app: analytics-service
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: analytics-service
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           image: mini_project-analytics-service:v2
           imagePullPolicy: IfNotPresent
           ports:

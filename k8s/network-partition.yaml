@@ -1,0 +1,11 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: simulate-network-partition
+  namespace: miniproject
+spec:
+  podSelector:
+    matchLabels:
+      app: event-service
+  policyTypes:
+  - Ingress

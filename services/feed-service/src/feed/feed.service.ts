@@ -14,7 +14,7 @@ export class FeedService {
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
     private readonly redis: RedisService,
     private readonly minio: MinioService,
-  ) {}
+  ) { }
 
   async create(userId: string, dto: CreatePostDto): Promise<PostDocument> {
     const post = await this.postModel.create({
@@ -51,7 +51,7 @@ export class FeedService {
     return posts;
   }
 
-  async likePost(postId: string, userId: string): Promise<PostDocument> {
+  async likePost(postId: string, userId: string, authHeader?: string): Promise<PostDocument> {
     const userObjId = new Types.ObjectId(userId);
     const post = await this.postModel.findByIdAndUpdate(
       postId,
@@ -62,6 +62,28 @@ export class FeedService {
     await this.redis
       .keys('feed:page:*')
       .then((keys) => Promise.all(keys.map((k) => this.redis.del(k))));
+
+    console.log(`[DEBUG] likePost invoked. userId: ${userId}, post.userId: ${post.userId.toString()}, authHeader present: ${!!authHeader}`);
+
+    if (userId !== post.userId.toString() && authHeader) {
+      console.log(`[DEBUG] Emitting notification to HTTP endpoint...`);
+      fetch('http://notification-service.miniproject.svc.cluster.local:3006/api/v1/notifications/notify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+        },
+        body: JSON.stringify({
+          userId: post.userId.toString(),
+          type: 'post_liked',
+          message: `User ${userId} liked your post`,
+          idempotencyKey: `post_liked:${postId}:${userId}`,
+        }),
+      }).then(res => {
+        console.log(`[DEBUG] HTTP Notification responded with status: ${res.status}`);
+      }).catch(err => console.error('[DEBUG] Failed to send notification via HTTP:', err));
+    }
+
     return post;
   }
 

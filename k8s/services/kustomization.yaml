@@ -25,3 +25,4 @@ resources:
   - analytics-service/deployment.yaml
   - analytics-service/service.yaml
   - analytics-service/configmap.yaml
+  - hpas.yaml

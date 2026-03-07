@@ -14,6 +14,8 @@ RUN npm install --prefer-offline && npm run build
 # ---- Production Stage ----
 FROM node:20-alpine AS production
 
+RUN apk upgrade --no-cache
+
 # Security: non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
