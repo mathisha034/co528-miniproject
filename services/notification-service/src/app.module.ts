@@ -34,4 +34,4 @@ import { MetricsController } from './metrics/metrics.controller';
   controllers: [HealthController, MetricsController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
-export class AppModule { }
+export class AppModule {}

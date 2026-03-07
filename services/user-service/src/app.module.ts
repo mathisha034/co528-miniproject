@@ -11,13 +11,20 @@ import { MetricsController } from './metrics/metrics.controller';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    MongooseModule.forRoot(process.env.MONGO_URI || 'mongodb://localhost:27017/miniproject_db', {
-      connectionFactory: (connection) => {
-        connection.on('connected', () => console.log('[user-service] MongoDB connected'));
-        connection.on('error', (err: Error) => console.error('[user-service] MongoDB error:', err));
-        return connection;
+    MongooseModule.forRoot(
+      process.env.MONGO_URI || 'mongodb://localhost:27017/miniproject_db',
+      {
+        connectionFactory: (connection) => {
+          connection.on('connected', () =>
+            console.log('[user-service] MongoDB connected'),
+          );
+          connection.on('error', (err: Error) =>
+            console.error('[user-service] MongoDB error:', err),
+          );
+          return connection;
+        },
       },
-    }),
+    ),
     // Rate limiting: 10 req/s per IP (100 requests per 10s window), burst handled by limit
     ThrottlerModule.forRoot([{ ttl: 10000, limit: 100 }]),
     AuthModule,
@@ -26,4 +33,4 @@ import { MetricsController } from './metrics/metrics.controller';
   controllers: [HealthController, MetricsController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
-export class AppModule { }
+export class AppModule {}

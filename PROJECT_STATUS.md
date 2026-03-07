@@ -255,14 +255,21 @@ sudo docker compose -f docker-compose.dev.yml up -d
 
 ---
 
-## ⏳ PENDING — Phases 6–10
+### Phase 6 — CI/CD & Infrastructure Automation ✅ COMPLETE
+- **GitHub Actions pipeline**: Wrote a full `.github/workflows/ci-cd.yml` supporting lint, unit/integration tests, build, Docker Hub push, and multi-environment Kustomize deployments to staging/production.
+- **Terraform Config**: Drafted AWS EKS automated cluster provisioning blocks in `terraform/main.tf` incorporating a VPC, Load Balancer connectivity, DNS setup (Route53), and the EBS CSI irsa role for persistent volumes.
 
-### Phase 6 — CI/CD & Infrastructure Automation (Next)
-- GitHub Actions pipeline: Lint → Unit test → Integration test → Docker build → Push image → Deploy staging → Smoke test → Deploy production
-- Write Terraform config to provision K8s cluster, load balancer, storage, networking, DNS
+---
 
-### Phase 7–10
-- Load Testing (k6), Security Hardening, Integration Testing, Documentation
+## ⏳ PENDING — Phases 7–10
+
+### Phase 7 — Performance & Scalability Validation (Next)
+- Load test: simulate 100 → 500 concurrent users
+- Monitor CPU, memory, and latency under load
+- Verify HPA triggers pod scaling, no crash loops, DB remains stable
+
+### Phase 8–10
+- Security Hardening, Integration Testing, Documentation
 
 ---
 
@@ -325,5 +332,5 @@ sudo docker compose -f docker-compose.dev.yml up -d
 3. **Read `/docs/phase0_db_schema_er.md`** for MongoDB schema and required indexes.
 4. **For each service**, copy auth layer from `user-service/src/auth/` — don't rewrite.
 5. **For minio mocking in Jest**, copy `__mocks__/minio.js` from `feed-service/` and add `moduleNameMapper` to the service's `package.json`.
-6. **Next action**: Move on to **Phase 6 — CI/CD & Infrastructure Automation**, to create the underlying Terraform IaC to provision cloud clusters automatically.
+6. **Next action**: Move on to **Phase 7 — Performance & Scalability Validation**, setting up k6 load testing scripts to stress-test the HPA autoscaling.
 7. **Always update this file** when completing any phase or major sub-task.

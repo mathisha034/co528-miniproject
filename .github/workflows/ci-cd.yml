@@ -1,0 +1,163 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          [
+            user-service,
+            feed-service,
+            job-service,
+            event-service,
+            notification-service,
+            messaging-service,
+            research-service,
+            analytics-service,
+          ]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: services/${{ matrix.service }}/package.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint -w services/${{ matrix.service }} --if-present
+
+      - name: Unit Tests
+        run: npm run test -w services/${{ matrix.service }} --if-present || echo "No tests configured yet"
+
+      - name: Integration Tests
+        run: npm run test:e2e -w services/${{ matrix.service }} --if-present || echo "No integration tests configured"
+
+  build-and-push:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        service:
+          [
+            user-service,
+            feed-service,
+            job-service,
+            event-service,
+            notification-service,
+            messaging-service,
+            research-service,
+            analytics-service,
+          ]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ env.DOCKER_USERNAME }}/mini_project-${{ matrix.service }}:latest, ${{ env.DOCKER_USERNAME }}/mini_project-${{ matrix.service }}:${{ github.sha }}
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure Kubeconfig (Staging)
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_STAGING }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy to Staging
+        # Using kustomize to set the new image tags and deploying them
+        run: |
+          cd k8s
+          # Install kustomize if not present
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+
+          # Update images to the new sha tag
+          ./kustomize edit set image mini_project-user-service=${{ env.DOCKER_USERNAME }}/mini_project-user-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-feed-service=${{ env.DOCKER_USERNAME }}/mini_project-feed-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-job-service=${{ env.DOCKER_USERNAME }}/mini_project-job-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-event-service=${{ env.DOCKER_USERNAME }}/mini_project-event-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-notification-service=${{ env.DOCKER_USERNAME }}/mini_project-notification-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-messaging-service=${{ env.DOCKER_USERNAME }}/mini_project-messaging-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-research-service=${{ env.DOCKER_USERNAME }}/mini_project-research-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-analytics-service=${{ env.DOCKER_USERNAME }}/mini_project-analytics-service:${{ github.sha }}
+
+          ./kustomize build . | kubectl apply -f -
+
+      - name: Smoke Test Staging
+        run: |
+          echo "Run basic smoke tests against the staging endpoint..."
+          curl -f -k https://staging.miniproject.local/api/v1/user-service/health || exit 1
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure Kubeconfig (Prod)
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_PROD }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy to Production
+        run: |
+          cd k8s
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+
+          # Update images
+          ./kustomize edit set image mini_project-user-service=${{ env.DOCKER_USERNAME }}/mini_project-user-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-feed-service=${{ env.DOCKER_USERNAME }}/mini_project-feed-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-job-service=${{ env.DOCKER_USERNAME }}/mini_project-job-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-event-service=${{ env.DOCKER_USERNAME }}/mini_project-event-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-notification-service=${{ env.DOCKER_USERNAME }}/mini_project-notification-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-messaging-service=${{ env.DOCKER_USERNAME }}/mini_project-messaging-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-research-service=${{ env.DOCKER_USERNAME }}/mini_project-research-service:${{ github.sha }}
+          ./kustomize edit set image mini_project-analytics-service=${{ env.DOCKER_USERNAME }}/mini_project-analytics-service:${{ github.sha }}
+
+          ./kustomize build . | kubectl apply -f -

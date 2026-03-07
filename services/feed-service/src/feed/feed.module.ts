@@ -7,8 +7,10 @@ import { RedisService } from '../redis/redis.service';
 import { MinioService } from '../minio/minio.service';
 
 @Module({
-    imports: [MongooseModule.forFeature([{ name: Post.name, schema: PostSchema }])],
-    controllers: [FeedController],
-    providers: [FeedService, RedisService, MinioService],
+  imports: [
+    MongooseModule.forFeature([{ name: Post.name, schema: PostSchema }]),
+  ],
+  controllers: [FeedController],
+  providers: [FeedService, RedisService, MinioService],
 })
-export class FeedModule { }
+export class FeedModule {}

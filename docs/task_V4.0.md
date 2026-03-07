@@ -47,8 +47,8 @@
 - [x] 5.3 Document RTO (Recovery Time Objective) and RPO (Recovery Point Objective)
 
 ## Phase 6 — CI/CD & Infrastructure Automation
-- [ ] 6.1 GitHub Actions pipeline: Lint → Unit test → Integration test → Docker build → Push image → Deploy staging → Smoke test → Deploy production
-- [ ] 6.2 Write Terraform config to provision K8s cluster, load balancer, storage, networking, DNS
+- [x] 6.1 GitHub Actions pipeline: Lint → Unit test → Integration test → Docker build → Push image → Deploy staging → Smoke test → Deploy production
+- [x] 6.2 Write Terraform config to provision K8s cluster, load balancer, storage, networking, DNS
 
 ## Phase 7 — Performance & Scalability Validation
 - [ ] 7.1 Load test: simulate 100 → 500 concurrent users

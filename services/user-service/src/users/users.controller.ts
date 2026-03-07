@@ -1,11 +1,11 @@
 import {
-    Controller,
-    Get,
-    Patch,
-    Param,
-    Body,
-    UseGuards,
-    Request,
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/user.dto';
@@ -17,29 +17,29 @@ import { UserRole } from './schemas/user.schema';
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-    constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
-    @Get('me')
-    async getMe(@Request() req) {
-        return this.usersService.findMe(req.user.sub);
-    }
+  @Get('me')
+  async getMe(@Request() req) {
+    return this.usersService.findMe(req.user.sub);
+  }
 
-    @Patch('me')
-    async updateMe(@Request() req, @Body() dto: UpdateUserDto) {
-        return this.usersService.updateMe(req.user.sub, dto);
-    }
+  @Patch('me')
+  async updateMe(@Request() req, @Body() dto: UpdateUserDto) {
+    return this.usersService.updateMe(req.user.sub, dto);
+  }
 
-    @Get(':id')
-    @UseGuards(RolesGuard)
-    @Roles(UserRole.ADMIN)
-    async findById(@Param('id') id: string) {
-        return this.usersService.findById(id);
-    }
+  @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async findById(@Param('id') id: string) {
+    return this.usersService.findById(id);
+  }
 
-    @Get()
-    @UseGuards(RolesGuard)
-    @Roles(UserRole.ADMIN)
-    async findAll() {
-        return this.usersService.findAll();
-    }
+  @Get()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async findAll() {
+    return this.usersService.findAll();
+  }
 }

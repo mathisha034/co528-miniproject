@@ -5,20 +5,20 @@ export type PostDocument = Post & Document;
 
 @Schema({ timestamps: true })
 export class Post {
-    @Prop({ required: true, type: Types.ObjectId, index: true })
-    userId: Types.ObjectId;
+  @Prop({ required: true, type: Types.ObjectId, index: true })
+  userId: Types.ObjectId;
 
-    @Prop({ required: true, minlength: 1 })
-    content: string;
+  @Prop({ required: true, minlength: 1 })
+  content: string;
 
-    @Prop({ default: '' })
-    imageUrl: string;
+  @Prop({ default: '' })
+  imageUrl: string;
 
-    @Prop({ type: [{ type: Types.ObjectId }], default: [] })
-    likes: Types.ObjectId[];
+  @Prop({ type: [{ type: Types.ObjectId }], default: [] })
+  likes: Types.ObjectId[];
 
-    @Prop({ default: 0 })
-    commentCount: number;
+  @Prop({ default: 0 })
+  commentCount: number;
 }
 
 export const PostSchema = SchemaFactory.createForClass(Post);
