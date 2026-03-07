@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - user-service/deployment.yaml
+  - user-service/service.yaml
+  - user-service/configmap.yaml
+  - feed-service/deployment.yaml
+  - feed-service/service.yaml
+  - feed-service/configmap.yaml
+  - job-service/deployment.yaml
+  - job-service/service.yaml
+  - job-service/configmap.yaml
+  - event-service/deployment.yaml
+  - event-service/service.yaml
+  - event-service/configmap.yaml
+  - notification-service/deployment.yaml
+  - notification-service/service.yaml
+  - notification-service/configmap.yaml
+  - messaging-service/deployment.yaml
+  - messaging-service/service.yaml
+  - messaging-service/configmap.yaml
+  - research-service/deployment.yaml
+  - research-service/service.yaml
+  - research-service/configmap.yaml
+  - analytics-service/deployment.yaml
+  - analytics-service/service.yaml
+  - analytics-service/configmap.yaml

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-service-config
+  namespace: miniproject
+data:
+  NODE_ENV: "production"
+  PORT: "3008"
+  RATE_LIMIT_TTL: "10000"
+  RATE_LIMIT_MAX: "100"

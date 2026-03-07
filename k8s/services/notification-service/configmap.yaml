@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notification-service-config
+  namespace: miniproject
+data:
+  NODE_ENV: "production"
+  PORT: "3006"
+  RATE_LIMIT_TTL: "10000"
+  RATE_LIMIT_MAX: "100"

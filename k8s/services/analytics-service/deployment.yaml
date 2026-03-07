@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: miniproject
+  labels:
+    app: analytics-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+    spec:
+      containers:
+        - name: analytics-service
+          image: mini_project-analytics-service:v2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3008
+          envFrom:
+            - configMapRef:
+                name: analytics-service-config
+            - secretRef:
+                name: mongodb-secret
+            - secretRef:
+                name: redis-secret
+            - secretRef:
+                name: jwt-secret
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3008
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3008
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"

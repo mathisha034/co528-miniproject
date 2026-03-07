@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: job-service-config
+  namespace: miniproject
+data:
+  NODE_ENV: "production"
+  PORT: "3003"
+  RATE_LIMIT_TTL: "10000"
+  RATE_LIMIT_MAX: "100"
