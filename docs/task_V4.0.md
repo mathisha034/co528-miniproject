@@ -42,9 +42,9 @@
 - [x] 4.6 Apply Network Policies and non-root container enforcement
 
 ## Phase 5 — Backup & Recovery
-- [ ] 5.1 Implement MongoDB backup CronJob (daily dump → store tarball in MinIO)
-- [ ] 5.2 Simulate DB deletion → restore from backup → measure time
-- [ ] 5.3 Document RTO (Recovery Time Objective) and RPO (Recovery Point Objective)
+- [x] 5.1 Implement MongoDB backup CronJob (daily dump → store tarball in MinIO)
+- [x] 5.2 Simulate DB deletion → restore from backup → measure time
+- [x] 5.3 Document RTO (Recovery Time Objective) and RPO (Recovery Point Objective)
 
 ## Phase 6 — CI/CD & Infrastructure Automation
 - [ ] 6.1 GitHub Actions pipeline: Lint → Unit test → Integration test → Docker build → Push image → Deploy staging → Smoke test → Deploy production

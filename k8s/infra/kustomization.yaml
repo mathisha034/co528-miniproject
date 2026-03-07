@@ -5,3 +5,4 @@ resources:
   - redis/statefulset.yaml
   - minio/statefulset.yaml
   - keycloak/statefulset.yaml
+  - backup-cronjob.yaml

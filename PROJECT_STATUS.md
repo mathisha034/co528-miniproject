@@ -249,15 +249,20 @@ sudo docker compose -f docker-compose.dev.yml up -d
 
 ---
 
-## ⏳ PENDING — Phases 5–10
+### Phase 5 — Backup & Recovery ✅ COMPLETE
+- **MongoDB CronJob**: Containerized mongodump shell script directly streaming to MinIO via `mc pipe`. Deployed as a K8s CronJob.
+- **Recovery Testing**: Dropped the target database, executed the restore container (`mc cat <archive> \| mongorestore`), and verified collection metrics matched pre-crash states.
 
-### Phase 5 — Backup & Recovery (Next)
-- Implement MongoDB backup CronJob (daily dump → store tarball in MinIO)
-- Simulate DB deletion → restore from backup → measure time
-- Document RTO (Recovery Time Objective) and RPO (Recovery Point Objective)
+---
 
-### Phase 6–10
-- CI/CD (GitHub Actions), Load Testing (k6), Security Hardening, Integration Testing, Documentation
+## ⏳ PENDING — Phases 6–10
+
+### Phase 6 — CI/CD & Infrastructure Automation (Next)
+- GitHub Actions pipeline: Lint → Unit test → Integration test → Docker build → Push image → Deploy staging → Smoke test → Deploy production
+- Write Terraform config to provision K8s cluster, load balancer, storage, networking, DNS
+
+### Phase 7–10
+- Load Testing (k6), Security Hardening, Integration Testing, Documentation
 
 ---
 
@@ -320,5 +325,5 @@ sudo docker compose -f docker-compose.dev.yml up -d
 3. **Read `/docs/phase0_db_schema_er.md`** for MongoDB schema and required indexes.
 4. **For each service**, copy auth layer from `user-service/src/auth/` — don't rewrite.
 5. **For minio mocking in Jest**, copy `__mocks__/minio.js` from `feed-service/` and add `moduleNameMapper` to the service's `package.json`.
-6. **Next action**: Move on to **Phase 5 — Backup & Recovery**, verifying automated MongoDB dumps into MinIO using Kubernetes CronJobs.
+6. **Next action**: Move on to **Phase 6 — CI/CD & Infrastructure Automation**, to create the underlying Terraform IaC to provision cloud clusters automatically.
 7. **Always update this file** when completing any phase or major sub-task.
