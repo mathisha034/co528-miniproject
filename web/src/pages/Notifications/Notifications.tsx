@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Check, CheckCircle2, MessageSquare, Briefcase, Calendar } from 'lucide-react';
 import { api } from '../../lib/axios';
+import { useSearch } from '../../contexts/SearchContext';
 import './Notifications.css';
 
 interface Notification {
@@ -82,6 +83,13 @@ export const Notifications: React.FC = () => {
         return <Bell size={20} className="notif-icon primary" />;
     };
 
+    const { query } = useSearch();
+    const filteredNotifications = query
+        ? notifications.filter(n =>
+            `${n.content} ${n.type} ${getTitleForType(n.type, n.title)}`.toLowerCase().includes(query.toLowerCase())
+          )
+        : notifications;
+
     return (
         <div className="notifications-page">
             <div className="page-header">
@@ -102,8 +110,8 @@ export const Notifications: React.FC = () => {
             <div className="notifications-list card">
                 {loading && notifications.length === 0 ? (
                     <div className="loading-state">Loading actual notifications...</div>
-                ) : notifications.length > 0 ? (
-                    notifications.map(notif => (
+                ) : filteredNotifications.length > 0 ? (
+                    filteredNotifications.map(notif => (
                         <div
                             key={notif._id}
                             className={`notification-item ${!notif.isRead ? 'unread' : ''}`}
@@ -130,8 +138,17 @@ export const Notifications: React.FC = () => {
                 ) : (
                     <div className="empty-state">
                         <Check size={48} className="empty-icon success-color" />
-                        <h3>You're all caught up!</h3>
-                        <p>No new notifications right now.</p>
+                        {query ? (
+                            <>
+                                <h3>No results for "{query}"</h3>
+                                <p>Try a different search term.</p>
+                            </>
+                        ) : (
+                            <>
+                                <h3>You're all caught up!</h3>
+                                <p>No new notifications right now.</p>
+                            </>
+                        )}
                     </div>
                 )}
             </div>

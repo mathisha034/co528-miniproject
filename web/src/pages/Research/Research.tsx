@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FlaskConical, Users, FileText, Upload, Plus, X, UserPlus, FileArchive } from 'lucide-react';
 import { api } from '../../lib/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSearch } from '../../contexts/SearchContext';
 import './Research.css';
 
 interface Document {
@@ -113,6 +114,11 @@ export const Research: React.FC = () => {
         }
     };
 
+    const { query } = useSearch();
+    const filteredProjects = query
+        ? projects.filter(p => `${p.title ?? ''} ${p.description ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+        : projects;
+
     return (
         <div className="research-page">
             <div className="page-header">
@@ -129,8 +135,8 @@ export const Research: React.FC = () => {
             <div className="projects-grid">
                 {loading ? (
                     <div className="loading-state">Loading projects...</div>
-                ) : projects.length > 0 ? (
-                    projects.map(project => (
+                ) : filteredProjects.length > 0 ? (
+                    filteredProjects.map(project => (
                         <div key={project._id} className="project-card card">
                             <div className="project-header">
                                 <div>

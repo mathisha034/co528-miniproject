@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Image, Send, ThumbsUp, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { api } from '../../lib/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSearch } from '../../contexts/SearchContext';
 import { proxyMediaUrl } from '../../lib/mediaUrl';
 import './Feed.css';
 
@@ -142,6 +143,11 @@ export const Feed: React.FC = () => {
         }
     };
 
+    const { query } = useSearch();
+    const filteredPosts = query
+        ? posts.filter(p => (p.content ?? '').toLowerCase().includes(query.toLowerCase()))
+        : posts;
+
     return (
         <div className="feed-page">
             <div className="feed-header">
@@ -209,7 +215,7 @@ export const Feed: React.FC = () => {
 
                     {/* Feed Stream */}
                     <div className="feed-stream">
-                        {posts.map(post => (
+                        {filteredPosts.map(post => (
                             <div key={post._id} className="post-card card">
                                 <div className="post-header">
                                     <div className="post-author-info">

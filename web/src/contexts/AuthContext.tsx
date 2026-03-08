@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setIsAuthenticated(authenticated);
                 if (authenticated) {
                     const profile = await keycloak.loadUserProfile();
-                    if (isMounted) setUser(profile);
+                    if (isMounted) setUser({ ...profile, sub: keycloak.tokenParsed?.sub });
                 }
                 setIsInitialized(true);
             })

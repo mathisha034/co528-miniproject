@@ -64,6 +64,49 @@
     margin-bottom: var(--spacing-2);
 }
 
+.event-badges {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex-shrink: 0;
+}
+
+.event-status-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.event-status-badge.upcoming {
+    background-color: rgba(16, 185, 129, 0.12);
+    color: var(--color-success);
+}
+
+.event-status-badge.live {
+    background-color: rgba(239, 68, 68, 0.12);
+    color: var(--color-danger);
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+.event-status-badge.ended {
+    background-color: rgba(107, 114, 128, 0.15);
+    color: var(--text-tertiary);
+}
+
+.event-status-badge.cancelled {
+    background-color: rgba(239, 68, 68, 0.08);
+    color: var(--color-danger);
+    text-decoration: line-through;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
 .event-title {
     font-size: 1.25rem;
     margin: 0;
@@ -143,6 +186,19 @@
 .rsvp-btn.attending:hover {
     background-color: var(--color-danger);
     /* Optional: change text to "Cancel RSVP" on hover using JS */
+}
+
+.rsvp-btn:disabled,
+.rsvp-btn.disabled {
+    background-color: var(--text-tertiary, #9ca3af);
+    color: white;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.rsvp-btn:disabled:hover,
+.rsvp-btn.disabled:hover {
+    background-color: var(--text-tertiary, #9ca3af);
 }
 
 /* Form Styles Shared with Jobs */

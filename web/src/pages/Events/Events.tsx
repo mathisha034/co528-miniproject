@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, MapPin, Users, Plus, X, Video } from 'lucide-react';
 import { api } from '../../lib/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSearch } from '../../contexts/SearchContext';
 import './Events.css';
 
 interface Event {
@@ -13,6 +14,7 @@ interface Event {
     format: 'in-person' | 'online' | 'hybrid';
     organizer: string;
     attendees: string[];
+    status: 'upcoming' | 'live' | 'ended' | 'cancelled';
     maxAttendees?: number;
 }
 
@@ -33,9 +35,12 @@ export const Events: React.FC = () => {
             const raw = res.data.items || (Array.isArray(res.data) ? res.data : []);
             setEvents(raw.map((e: any) => ({
                 ...e,
-                attendees: e.attendees ?? [],
+                _id: String(e._id),
+                attendees: e.rsvps ?? e.attendees ?? [],
+                date: e.date ?? e.eventDate ?? null,
                 format: e.format ?? 'in-person',
                 description: e.description ?? '',
+                status: e.status ?? 'upcoming',
             })));
         } catch (err) {
             console.error('Failed to load events', err);
@@ -49,28 +54,46 @@ export const Events: React.FC = () => {
     }, []);
 
     const handleRSVP = async (eventId: string, isAttending: boolean) => {
+        const userId = user?.sub || '';
+        if (!userId) return;
+
+        // Optimistic update: immediately flip the UI
+        setEvents(prev => prev.map(ev => {
+            if (String(ev._id) !== String(eventId)) return ev;
+            const current = ev.attendees ?? [];
+            const updated = isAttending
+                ? current.filter(id => id !== userId)
+                : [...current, userId];
+            return { ...ev, attendees: updated };
+        }));
+
         try {
             const endpoint = `/api/v1/event-service/events/${eventId}/rsvp`;
-            if (isAttending) {
-                await api.delete(endpoint);
-            } else {
-                await api.post(endpoint);
-            }
+            const res = isAttending
+                ? await api.delete(endpoint)
+                : await api.post(endpoint);
 
-            const userId = user?.sub || 'me';
-            setEvents(prev => prev.map(ev => {
-                if (ev._id === eventId) {
-                    const attendees = ev.attendees ?? [];
-                    const newAttendees = isAttending
-                        ? attendees.filter(id => id !== userId)
-                        : [...attendees, userId];
-                    return { ...ev, attendees: newAttendees };
-                }
-                return ev;
-            }));
-        } catch (err) {
+            // Confirm from server response (source of truth)
+            const serverRsvps: string[] | undefined = res.data?.rsvps;
+            if (Array.isArray(serverRsvps)) {
+                setEvents(prev => prev.map(ev =>
+                    String(ev._id) === String(eventId)
+                        ? { ...ev, attendees: serverRsvps }
+                        : ev
+                ));
+            }
+        } catch (err: any) {
             console.error('RSVP failed', err);
-            alert('Failed to update RSVP status.');
+            // Revert optimistic update on failure
+            setEvents(prev => prev.map(ev => {
+                if (String(ev._id) !== String(eventId)) return ev;
+                const current = ev.attendees ?? [];
+                const reverted = isAttending
+                    ? [...current, userId]
+                    : current.filter(id => id !== userId);
+                return { ...ev, attendees: reverted };
+            }));
+            alert(err?.response?.data?.message || 'Failed to update RSVP status.');
         }
     };
 
@@ -82,13 +105,14 @@ export const Events: React.FC = () => {
             const payload = {
                 title: formData.title,
                 description: formData.description,
-                date: dateTime,
+                eventDate: dateTime,
                 location: formData.location,
                 format: formData.format
             };
 
             const res = await api.post('/api/v1/event-service/events', payload);
-            setEvents(prev => [...(prev || []), res.data]);
+            const newEvent = { ...res.data, attendees: res.data.rsvps ?? res.data.attendees ?? [], date: res.data.date ?? res.data.eventDate ?? null, status: res.data.status ?? 'upcoming' };
+            setEvents(prev => [...(prev || []), newEvent]);
             setShowModal(false);
             setFormData({ title: '', description: '', date: '', time: '', location: '', format: 'in-person' });
         } catch (err) {
@@ -98,6 +122,11 @@ export const Events: React.FC = () => {
     };
 
     const isAdmin = hasRole('admin');
+
+    const { query } = useSearch();
+    const filteredEvents = query
+        ? events.filter(e => `${e.title ?? ''} ${e.location ?? ''} ${e.description ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+        : events;
 
     return (
         <div className="events-page">
@@ -117,9 +146,10 @@ export const Events: React.FC = () => {
             <div className="events-list">
                 {loading ? (
                     <div className="loading-state">Loading events...</div>
-                ) : events.length > 0 ? (
-                    events.map(event => {
+                ) : filteredEvents.length > 0 ? (
+                    filteredEvents.map(event => {
                         const isAttending = (event.attendees ?? []).includes(user?.sub || 'me');
+                        const canRSVP = event.status === 'upcoming' || event.status === 'live';
                         const eventDate = event.date ? new Date(event.date) : null;
                         const validDate = eventDate && !isNaN(eventDate.getTime());
                         const month = validDate ? eventDate!.toLocaleString('default', { month: 'short' }) : '—';
@@ -136,10 +166,15 @@ export const Events: React.FC = () => {
                                 <div className="event-details">
                                     <div className="event-header-row">
                                         <h3 className="event-title">{event.title}</h3>
-                                        <span className={`event-format-badge ${event.format}`}>
+                                        <div className="event-badges">
+                                            <span className={`event-status-badge ${event.status}`}>
+                                                {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                                            </span>
+                                            <span className={`event-format-badge ${event.format}`}>
                                             {event.format === 'online' ? <Video size={14} /> : <MapPin size={14} />}
                                             {(event.format ?? '').charAt(0).toUpperCase() + (event.format ?? '').slice(1)}
-                                        </span>
+                                            </span>
+                                        </div>
                                     </div>
 
                                     <div className="event-meta">
@@ -153,10 +188,15 @@ export const Events: React.FC = () => {
 
                                 <div className="event-actions">
                                     <button
-                                        className={`rsvp-btn ${isAttending ? 'attending' : ''}`}
-                                        onClick={() => handleRSVP(event._id, isAttending)}
+                                        className={`rsvp-btn ${isAttending ? 'attending' : ''} ${!canRSVP ? 'disabled' : ''}`}
+                                        onClick={() => canRSVP && handleRSVP(event._id, isAttending)}
+                                        disabled={!canRSVP}
+                                        title={!canRSVP ? `Event is ${event.status}` : undefined}
                                     >
-                                        {isAttending ? '✓ Going' : 'RSVP'}
+                                        {!canRSVP
+                                            ? (event.status === 'ended' ? 'Ended' : 'Cancelled')
+                                            : isAttending ? '✓ Going' : 'RSVP'
+                                        }
                                     </button>
                                 </div>
                             </div>

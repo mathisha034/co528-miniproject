@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import './Dashboard.css';
 
 interface StatData {
-    users: number;
+    users: number | null;
     posts: number;
     jobs: number;
     events: number;
@@ -21,26 +21,65 @@ const SERVICES = ['user-service', 'feed-service', 'job-service', 'event-service'
 
 export const Dashboard: React.FC = () => {
     const { user, hasRole } = useAuth();
-    const [stats, setStats] = useState<StatData>({ users: 0, posts: 0, jobs: 0, events: 0 });
+    const [stats, setStats] = useState<StatData>({ users: null, posts: 0, jobs: 0, events: 0 });
     const [healthStatus, setHealthStatus] = useState<ServiceHealth[]>(
         SERVICES.map(name => ({ name, status: 'loading', latency: 0 }))
     );
     const [feedPreview, setFeedPreview] = useState<any[]>([]);
 
     useEffect(() => {
-        // analytics/overview is admin-only — skip call for non-admins to avoid 403
+        const now = new Date().toISOString();
+
         if (hasRole('admin')) {
+            // Admin: use analytics overview for exact DB counts
             api.get('/api/v1/analytics-service/analytics/overview')
-                .then(res => setStats(res.data))
-                .catch(() => console.warn('Analytics overview unavailable, showing defaults'));
+                .then(res => setStats({
+                    users: res.data.totalUsers ?? res.data.users ?? 0,
+                    posts: res.data.posts ?? 0,
+                    jobs: res.data.openJobs ?? res.data.jobs ?? 0,
+                    events: res.data.events ?? 0,
+                }))
+                .catch(() => console.warn('Analytics overview unavailable'));
         }
 
+        // Non-admins: fetch counts directly from each service
+        // (Admins already have exact counts from analytics overview above)
+        if (!hasRole('admin')) {
+            // Posts: limit=1 trick — totalPages with limit=1 equals total post count
+            api.get('/api/v1/feed-service/feed?page=1&limit=1')
+                .then(res => {
+                    const total = res.data?.meta?.totalPages ?? (Array.isArray(res.data) ? res.data.length : 0);
+                    setStats(prev => ({ ...prev, posts: total }));
+                })
+                .catch(() => {});
+
+            // Open jobs
+            api.get('/api/v1/job-service/jobs?status=open')
+                .then(res => {
+                    const jobs = Array.isArray(res.data) ? res.data
+                        : (res.data?.jobs ?? res.data?.items ?? []);
+                    setStats(prev => ({ ...prev, jobs: jobs.length }));
+                })
+                .catch(() => {});
+
+            // Upcoming events (date >= now)
+            api.get('/api/v1/event-service/events')
+                .then(res => {
+                    const raw = Array.isArray(res.data) ? res.data : (res.data?.events ?? res.data?.items ?? []);
+                    const upcoming = raw.filter((e: any) => {
+                        const d = e.date || e.eventDate || e.startDate;
+                        return d && new Date(d) >= new Date(now);
+                    });
+                    setStats(prev => ({ ...prev, events: upcoming.length }));
+                })
+                .catch(() => {});
+        }
         // Fetch feed preview
         api.get('/api/v1/feed-service/feed?page=1&limit=3')
             .then(res => setFeedPreview(res.data.items || res.data || []))
             .catch(() => console.warn('Feed preview unavailable'));
 
-        // Health checks — always run regardless of auth
+        // Health checks
         SERVICES.forEach(service => {
             const startTime = performance.now();
             api.get(`/api/v1/${service}/health`, { timeout: 3000 })
@@ -68,28 +107,28 @@ export const Dashboard: React.FC = () => {
                     <div className="stat-icon-wrapper users"><Users size={24} /></div>
                     <div className="stat-content">
                         <span className="stat-label">Active Users</span>
-                        <span className="stat-value">{stats ? stats.users : '--'}</span>
+                        <span className="stat-value">{stats.users !== null ? stats.users : '--'}</span>
                     </div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-icon-wrapper jobs"><Briefcase size={24} /></div>
                     <div className="stat-content">
                         <span className="stat-label">Open Jobs</span>
-                        <span className="stat-value">{stats ? stats.jobs : '--'}</span>
+                        <span className="stat-value">{stats.jobs}</span>
                     </div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-icon-wrapper research"><FlaskConical size={24} /></div>
                     <div className="stat-content">
                         <span className="stat-label">Live Posts</span>
-                        <span className="stat-value">{stats ? stats.posts : '--'}</span>
+                        <span className="stat-value">{stats.posts}</span>
                     </div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-icon-wrapper events"><CalendarDays size={24} /></div>
                     <div className="stat-content">
                         <span className="stat-label">Upcoming Events</span>
-                        <span className="stat-value">{stats ? stats.events : '--'}</span>
+                        <span className="stat-value">{stats.events}</span>
                     </div>
                 </div>
             </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Briefcase, MapPin, Clock, Plus, X } from 'lucide-react';
 import { api } from '../../lib/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSearch } from '../../contexts/SearchContext';
 import './Jobs.css';
 
 interface Job {
@@ -89,6 +90,11 @@ export const Jobs: React.FC = () => {
 
     const canPostJob = hasRole('admin') || hasRole('alumni');
 
+    const { query } = useSearch();
+    const filteredJobs = query
+        ? jobs.filter(j => `${j.title ?? ''} ${j.company ?? ''} ${j.location ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+        : jobs;
+
     return (
         <div className="jobs-page">
             <div className="page-header">
@@ -119,8 +125,8 @@ export const Jobs: React.FC = () => {
             <div className="jobs-grid">
                 {loading ? (
                     <div className="loading-state">Loading opportunities...</div>
-                ) : jobs.length > 0 ? (
-                    jobs.map(job => {
+                ) : filteredJobs.length > 0 ? (
+                    filteredJobs.map(job => {
                         const hasApplied = (job.applications ?? []).includes(user?.sub || 'me');
 
                         return (
