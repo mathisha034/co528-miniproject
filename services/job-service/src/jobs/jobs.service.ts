@@ -2,10 +2,11 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Job, JobDocument, JobStatus } from './schemas/job.schema';
+import { Job, JobDocument, JobStatus, JobType } from './schemas/job.schema';
 import {
   Application,
   ApplicationDocument,
@@ -44,15 +45,54 @@ export class JobsService {
   ) {}
 
   async create(postedBy: string, dto: CreateJobDto): Promise<JobDocument> {
-    return this.jobModel.create({
-      postedBy: new Types.ObjectId(postedBy),
+    const job = await this.jobModel.create({
+      postedBy,
       ...dto,
       deadline: dto.deadline ? new Date(dto.deadline) : undefined,
     });
+
+    // G6.2: Fire-and-forget general notification to job poster confirming publication
+    const internalToken =
+      process.env.INTERNAL_TOKEN || 'miniproject-internal-auth-token';
+    fetch(
+      'http://notification-service.miniproject.svc.cluster.local:3006/api/v1/internal/notifications/notify',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-token': internalToken,
+        },
+        body: JSON.stringify({
+          userId: postedBy,
+          type: 'general',
+          message: `Your job posting "${job.title}" at ${job.company} has been published`,
+          idempotencyKey: `job_posted:${job._id}:${postedBy}`,
+        }),
+      },
+    ).catch((err) =>
+      console.error(
+        '[job-service] Failed to dispatch job_posted notification:',
+        err,
+      ),
+    );
+
+    return job;
   }
 
-  async findAll(): Promise<JobDocument[]> {
-    return this.jobModel.find().sort({ createdAt: -1 }).exec();
+  // G6.3: Default to open jobs only; pass status='all' to include closed jobs
+  // G6.1: Optional ?type= filter
+  async findAll(type?: string, status?: string): Promise<JobDocument[]> {
+    const filter: Record<string, unknown> = {};
+    // Default: only open jobs; pass status=all or status=closed to override
+    if (!status || status === 'open') {
+      filter.status = JobStatus.OPEN;
+    } else if (status !== 'all') {
+      filter.status = status;
+    }
+    if (type) {
+      filter.type = type;
+    }
+    return this.jobModel.find(filter).sort({ createdAt: -1 }).exec();
   }
 
   async findById(id: string): Promise<JobDocument> {
@@ -85,14 +125,48 @@ export class JobsService {
     if (job.status === JobStatus.CLOSED) {
       throw new BadRequestException('Cannot apply to a closed job');
     }
-    // withRetry simulates reliable persistence (e.g., notification side-effect)
-    return withRetry(() =>
-      this.appModel.create({
-        jobId: new Types.ObjectId(jobId),
-        applicantId: new Types.ObjectId(applicantId),
-        coverLetter: dto.coverLetter || '',
-      }),
+    let application: ApplicationDocument;
+    try {
+      application = await withRetry(() =>
+        this.appModel.create({
+          jobId: new Types.ObjectId(jobId),
+          applicantId,
+          coverLetter: dto.coverLetter || '',
+        }),
+      );
+    } catch (err: any) {
+      if (err.code === 11000) {
+        throw new ConflictException('You have already applied to this job');
+      }
+      throw err;
+    }
+
+    // G3.1: Fire-and-forget notification to applicant
+    const internalToken =
+      process.env.INTERNAL_TOKEN || 'miniproject-internal-auth-token';
+    fetch(
+      'http://notification-service.miniproject.svc.cluster.local:3006/api/v1/internal/notifications/notify',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-token': internalToken,
+        },
+        body: JSON.stringify({
+          userId: applicantId,
+          type: 'job_applied',
+          message: `Your application for "${job.title}" at ${job.company} has been submitted successfully`,
+          idempotencyKey: `job_applied:${jobId}:${applicantId}`,
+        }),
+      },
+    ).catch((err) =>
+      console.error(
+        '[job-service] Failed to dispatch job_applied notification:',
+        err,
+      ),
     );
+
+    return application;
   }
 
   async updateApplicationStatus(
@@ -112,7 +186,34 @@ export class JobsService {
       );
     }
     app.status = dto.status;
-    return app.save();
+    const saved = await app.save();
+
+    // G3.2: Fire-and-forget notification to applicant
+    const internalToken =
+      process.env.INTERNAL_TOKEN || 'miniproject-internal-auth-token';
+    fetch(
+      'http://notification-service.miniproject.svc.cluster.local:3006/api/v1/internal/notifications/notify',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-token': internalToken,
+        },
+        body: JSON.stringify({
+          userId: app.applicantId,
+          type: 'job_status_changed',
+          message: `Your application status has been updated to "${dto.status}"`,
+          idempotencyKey: `job_status_changed:${appId}:${dto.status}`,
+        }),
+      },
+    ).catch((err) =>
+      console.error(
+        '[job-service] Failed to dispatch job_status_changed notification:',
+        err,
+      ),
+    );
+
+    return saved;
   }
 
   async findApplicationsByJob(jobId: string): Promise<ApplicationDocument[]> {

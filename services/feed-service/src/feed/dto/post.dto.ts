@@ -16,4 +16,7 @@ export class PaginationDto {
 
   @IsOptional()
   limit?: number = 10;
+
+  @IsOptional()
+  role?: string;
 }

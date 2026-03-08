@@ -15,8 +15,8 @@ export class Application {
   @Prop({ required: true, type: Types.ObjectId, index: true })
   jobId: Types.ObjectId;
 
-  @Prop({ required: true, type: Types.ObjectId, index: true })
-  applicantId: Types.ObjectId;
+  @Prop({ required: true, type: String, index: true })
+  applicantId: string;
 
   @Prop({
     type: String,
@@ -31,3 +31,6 @@ export class Application {
 }
 
 export const ApplicationSchema = SchemaFactory.createForClass(Application);
+
+// Ensure a user can only apply to a specific job once
+ApplicationSchema.index({ jobId: 1, applicantId: 1 }, { unique: true });

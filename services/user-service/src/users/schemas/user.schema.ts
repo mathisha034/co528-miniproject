@@ -33,6 +33,9 @@ export class User {
 
   @Prop({ default: '' })
   avatar: string;
+
+  @Prop({ type: [String], default: [] })
+  skills: string[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

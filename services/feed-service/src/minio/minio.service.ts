@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import * as Minio from 'minio';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -26,19 +26,35 @@ export class MinioService {
     }
   }
 
+  async statObject(objectName: string): Promise<{ exists: boolean; size: number; contentType: string }> {
+    try {
+      const stat = await this.client.statObject(this.bucket, objectName);
+      return {
+        exists: true,
+        size: stat.size,
+        contentType: (stat.metaData as Record<string, string>)['content-type'] || '',
+      };
+    } catch {
+      return { exists: false, size: 0, contentType: '' };
+    }
+  }
+
   async uploadFile(buffer: Buffer, mimetype: string): Promise<string> {
-    await this.ensureBucketExists();
-    const ext = mimetype.split('/')[1] || 'bin';
-    const objectName = `posts/${uuidv4()}.${ext}`;
-    await this.client.putObject(
-      this.bucket,
-      objectName,
-      buffer,
-      buffer.length,
-      {
-        'Content-Type': mimetype,
-      },
-    );
-    return `http://${process.env.MINIO_ENDPOINT || 'localhost'}:${process.env.MINIO_PORT || '9000'}/${this.bucket}/${objectName}`;
+    try {
+      await this.ensureBucketExists();
+      const ext = mimetype.split('/')[1] || 'bin';
+      const objectName = `posts/${uuidv4()}.${ext}`;
+      await this.client.putObject(
+        this.bucket,
+        objectName,
+        buffer,
+        buffer.length,
+        { 'Content-Type': mimetype },
+      );
+      return `http://${process.env.MINIO_ENDPOINT || 'localhost'}:${process.env.MINIO_PORT || '9000'}/${this.bucket}/${objectName}`;
+    } catch (e) {
+      this.logger.error(`[feed-service] MinIO upload failed: ${e.message}`);
+      throw new ServiceUnavailableException('Image storage is temporarily unavailable');
+    }
   }
 }

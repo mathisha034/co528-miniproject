@@ -10,6 +10,7 @@ import {
   Request,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FeedService } from './feed.service';
@@ -28,14 +29,21 @@ export class FeedController {
 
   @Post()
   async create(@Request() req, @Body() dto: CreatePostDto) {
-    return this.feedService.create(req.user.sub, dto);
+    return this.feedService.create(req.user.sub, req.user.role, dto);
   }
 
   @Get()
   async getFeed(@Query() query: PaginationDto) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 10;
-    return this.feedService.getFeed(page, limit);
+    const role = query.role;
+    return this.feedService.getFeed(page, limit, role);
+  }
+
+  // G9.1: Single-post retrieval
+  @Get(':id')
+  async getById(@Param('id') id: string) {
+    return this.feedService.findById(id);
   }
 
   @Post(':id/like')
@@ -53,5 +61,12 @@ export class FeedController {
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
     const url = await this.feedService.uploadImage(file.buffer, file.mimetype);
     return { imageUrl: url };
+  }
+
+  // G2.1: Verify a MinIO object exists by its within-bucket path
+  @Get('upload/verify')
+  async verifyImage(@Query('path') path: string) {
+    if (!path) throw new BadRequestException('path query parameter is required');
+    return this.feedService.verifyImage(path);
   }
 }

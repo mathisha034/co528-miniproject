@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsEmail } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsEmail, IsArray } from 'class-validator';
 import { UserRole } from '../schemas/user.schema';
 
 export class CreateUserDto {
@@ -28,4 +28,9 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   avatar?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  skills?: string[];
 }

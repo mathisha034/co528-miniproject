@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document } from 'mongoose';
 
 export type JobDocument = Job & Document;
 
@@ -8,10 +8,18 @@ export enum JobStatus {
   CLOSED = 'closed',
 }
 
+// G6.1: job type field
+export enum JobType {
+  INTERNSHIP = 'internship',
+  FULL_TIME = 'full-time',
+  PART_TIME = 'part-time',
+  CONTRACT = 'contract',
+}
+
 @Schema({ timestamps: true })
 export class Job {
-  @Prop({ required: true, type: Types.ObjectId })
-  postedBy: Types.ObjectId;
+  @Prop({ required: true, type: String, index: true })
+  postedBy: string;
 
   @Prop({ required: true })
   title: string;
@@ -27,6 +35,10 @@ export class Job {
 
   @Prop({ type: Date, index: true })
   deadline: Date;
+
+  // G6.1: optional job type (internship / full-time / part-time / contract)
+  @Prop({ type: String, enum: JobType, index: true })
+  type?: JobType;
 }
 
 export const JobSchema = SchemaFactory.createForClass(Job);

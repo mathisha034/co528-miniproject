@@ -5,8 +5,11 @@ export type PostDocument = Post & Document;
 
 @Schema({ timestamps: true })
 export class Post {
-  @Prop({ required: true, type: Types.ObjectId, index: true })
-  userId: Types.ObjectId;
+  @Prop({ required: true, type: String, index: true })
+  userId: string;
+
+  @Prop({ default: 'student', type: String, index: true })
+  authorRole: string;
 
   @Prop({ required: true, minlength: 1 })
   content: string;
@@ -14,8 +17,8 @@ export class Post {
   @Prop({ default: '' })
   imageUrl: string;
 
-  @Prop({ type: [{ type: Types.ObjectId }], default: [] })
-  likes: Types.ObjectId[];
+  @Prop({ type: [String], default: [] })
+  likes: string[];
 
   @Prop({ default: 0 })
   commentCount: number;

@@ -1,0 +1,127 @@
+/* UI Components Shared CSS */
+
+/* --- Button --- */
+.ui-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-body);
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    border: 1px solid transparent;
+}
+
+.ui-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ui-button--sm {
+    padding: var(--spacing-2) var(--spacing-3);
+    font-size: 0.875rem;
+}
+
+.ui-button--md {
+    padding: var(--spacing-2) var(--spacing-4);
+    font-size: 1rem;
+}
+
+.ui-button--lg {
+    padding: var(--spacing-3) var(--spacing-6);
+    font-size: 1.125rem;
+}
+
+.ui-button--primary {
+    background-color: var(--color-primary);
+    color: #fff;
+}
+
+.ui-button--primary:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+}
+
+.ui-button--secondary {
+    background-color: var(--color-secondary);
+    color: #fff;
+}
+
+.ui-button--outline {
+    background-color: transparent;
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+}
+
+.ui-button--outline:hover:not(:disabled) {
+    background-color: var(--bg-hover);
+}
+
+.ui-button--danger {
+    background-color: var(--color-danger);
+    color: #fff;
+}
+
+.ui-button__spinner {
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: ui-spin 0.75s linear infinite;
+    margin-right: var(--spacing-2);
+}
+
+@keyframes ui-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* --- Card --- */
+.ui-card {
+    background-color: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-light);
+    padding: var(--spacing-5);
+}
+
+.ui-card--no-padding {
+    padding: 0;
+}
+
+/* --- Badge --- */
+.ui-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: var(--radius-full);
+    line-height: 1.25;
+}
+
+.ui-badge--default {
+    background-color: var(--bg-hover);
+    color: var(--text-secondary);
+}
+
+.ui-badge--success {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.ui-badge--warning {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.ui-badge--danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.ui-badge--info {
+    background-color: #dbeafe;
+    color: #1e40af;
+}

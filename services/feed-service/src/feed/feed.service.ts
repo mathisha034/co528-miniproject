@@ -16,9 +16,10 @@ export class FeedService {
     private readonly minio: MinioService,
   ) { }
 
-  async create(userId: string, dto: CreatePostDto): Promise<PostDocument> {
+  async create(userId: string, role: string, dto: CreatePostDto): Promise<PostDocument> {
     const post = await this.postModel.create({
-      userId: new Types.ObjectId(userId),
+      userId: userId,
+      authorRole: role || 'student',
       content: dto.content,
       imageUrl: dto.imageUrl || '',
     });
@@ -28,8 +29,16 @@ export class FeedService {
     return post;
   }
 
-  async getFeed(page: number, limit: number): Promise<PostDocument[]> {
-    const cacheKey = `feed:page:${page}`;
+  // G9.1: Single-post retrieval
+  async findById(id: string): Promise<PostDocument> {
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Post not found');
+    const post = await this.postModel.findById(id).exec();
+    if (!post) throw new NotFoundException('Post not found');
+    return post;
+  }
+
+  async getFeed(page: number, limit: number, role?: string): Promise<{ items: PostDocument[], meta: { totalPages: number, page: number } }> {
+    const cacheKey = `feed:page:${page}:limit:${limit}:role:${role || 'all'}`;
 
     // Try cache first
     const cached = await this.redis.get(cacheKey);
@@ -39,20 +48,31 @@ export class FeedService {
 
     // DB query
     const skip = (page - 1) * limit;
-    const posts = await this.postModel
-      .find()
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .exec();
+    const filter: Record<string, any> = {};
+    if (role) {
+      filter.authorRole = role;
+    }
+
+    const [items, total] = await Promise.all([
+      this.postModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.postModel.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limit) || 1;
+    const result = { items, meta: { totalPages, page } };
 
     // Store in cache
-    await this.redis.set(cacheKey, JSON.stringify(posts), FEED_CACHE_TTL);
-    return posts;
+    await this.redis.set(cacheKey, JSON.stringify(result), FEED_CACHE_TTL);
+    return result;
   }
 
   async likePost(postId: string, userId: string, authHeader?: string): Promise<PostDocument> {
-    const userObjId = new Types.ObjectId(userId);
+    const userObjId = userId;
     const post = await this.postModel.findByIdAndUpdate(
       postId,
       { $addToSet: { likes: userObjId } },
@@ -63,15 +83,13 @@ export class FeedService {
       .keys('feed:page:*')
       .then((keys) => Promise.all(keys.map((k) => this.redis.del(k))));
 
-    console.log(`[DEBUG] likePost invoked. userId: ${userId}, post.userId: ${post.userId.toString()}, authHeader present: ${!!authHeader}`);
-
-    if (userId !== post.userId.toString() && authHeader) {
-      console.log(`[DEBUG] Emitting notification to HTTP endpoint...`);
-      fetch('http://notification-service.miniproject.svc.cluster.local:3006/api/v1/notifications/notify', {
+    if (userId !== post.userId?.toString()) {
+      const internalToken = process.env.INTERNAL_TOKEN || 'miniproject-internal-auth-token';
+      fetch('http://notification-service.miniproject.svc.cluster.local:3006/api/v1/internal/notifications/notify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authHeader,
+          'x-internal-token': internalToken,
         },
         body: JSON.stringify({
           userId: post.userId.toString(),
@@ -80,15 +98,15 @@ export class FeedService {
           idempotencyKey: `post_liked:${postId}:${userId}`,
         }),
       }).then(res => {
-        console.log(`[DEBUG] HTTP Notification responded with status: ${res.status}`);
-      }).catch(err => console.error('[DEBUG] Failed to send notification via HTTP:', err));
+        console.log(`[DEBUG] HTTP Internal Notification responded with status: ${res.status}`);
+      }).catch(err => console.error('[DEBUG] Failed to send internal notification:', err));
     }
 
     return post;
   }
 
   async unlikePost(postId: string, userId: string): Promise<PostDocument> {
-    const userObjId = new Types.ObjectId(userId);
+    const userObjId = userId;
     const post = await this.postModel.findByIdAndUpdate(
       postId,
       { $pull: { likes: userObjId } },
@@ -100,5 +118,10 @@ export class FeedService {
 
   async uploadImage(buffer: Buffer, mimetype: string): Promise<string> {
     return this.minio.uploadFile(buffer, mimetype);
+  }
+
+  // G2.1: Verify a MinIO object exists by its path within the bucket
+  async verifyImage(objectPath: string): Promise<{ exists: boolean; size: number; contentType: string }> {
+    return this.minio.statObject(objectPath);
   }
 }

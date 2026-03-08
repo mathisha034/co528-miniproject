@@ -28,7 +28,7 @@ spec:
             capabilities:
               drop:
                 - ALL
-          image: mini_project-job-service:latest
+          image: job-service:v4
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3003

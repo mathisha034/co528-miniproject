@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
-import { JobStatus } from '../schemas/job.schema';
+import { JobStatus, JobType } from '../schemas/job.schema';
 import { ApplicationStatus } from '../schemas/application.schema';
 
 export class CreateJobDto {
@@ -15,6 +15,11 @@ export class CreateJobDto {
   @IsDateString()
   @IsOptional()
   deadline?: string;
+
+  // G6.1: optional job type
+  @IsEnum(JobType)
+  @IsOptional()
+  type?: JobType;
 }
 
 export class UpdateJobStatusDto {

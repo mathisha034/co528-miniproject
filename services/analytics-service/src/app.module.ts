@@ -1,10 +1,35 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthModule } from './auth/auth.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { HealthController } from './health/health.controller';
+import { MetricsController } from './metrics/metrics.controller';
 
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    MongooseModule.forRoot(
+      process.env.MONGO_URI || 'mongodb://localhost:27017/miniproject_db',
+      {
+        connectionFactory: (connection) => {
+          connection.on('connected', () =>
+            console.log('[analytics-service] MongoDB connected'),
+          );
+          connection.on('error', (err: Error) =>
+            console.error('[analytics-service] MongoDB error:', err),
+          );
+          return connection;
+        },
+      },
+    ),
+    ThrottlerModule.forRoot([{ ttl: 10000, limit: 100 }]),
+    AuthModule,
+    AnalyticsModule,
+  ],
+  controllers: [HealthController, MetricsController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
-export class AppModule {}
+export class AppModule { }

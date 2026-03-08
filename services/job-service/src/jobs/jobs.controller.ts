@@ -5,6 +5,7 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -33,9 +34,14 @@ export class JobsController {
   }
 
   // Any authenticated user: list jobs
+  // G6.1: ?type=internship|full-time|part-time|contract
+  // G6.3: ?status=open (default)|closed|all
   @Get()
-  findAll() {
-    return this.jobsService.findAll();
+  findAll(
+    @Query('type') type?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.jobsService.findAll(type, status);
   }
 
   // Any authenticated user: job detail

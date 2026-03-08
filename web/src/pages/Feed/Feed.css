@@ -1,0 +1,304 @@
+.feed-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-6);
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.feed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: var(--spacing-4);
+}
+
+.filter-tabs {
+    display: flex;
+    background-color: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: 4px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-light);
+}
+
+.filter-tab {
+    padding: var(--spacing-2) var(--spacing-4);
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.filter-tab:hover {
+    color: var(--color-primary);
+}
+
+.filter-tab.active {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.feed-layout {
+    display: flex;
+    gap: var(--spacing-6);
+    align-items: flex-start;
+}
+
+.feed-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-6);
+    min-width: 0;
+}
+
+.feed-sidebar {
+    width: 300px;
+    flex-shrink: 0;
+}
+
+.post-composer {
+    padding: var(--spacing-5);
+}
+
+.composer-top {
+    display: flex;
+    gap: var(--spacing-4);
+}
+
+.composer-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-full);
+    background-color: var(--color-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.composer-form {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+}
+
+.composer-input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    resize: none;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    color: var(--text-primary);
+    outline: none;
+}
+
+.composer-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.composer-image-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--bg-main);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.composer-image-preview button {
+    color: var(--color-danger);
+    font-weight: bold;
+}
+
+.composer-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: var(--spacing-3);
+    border-top: 1px solid var(--border-light);
+}
+
+.composer-tools {
+    display: flex;
+    gap: var(--spacing-2);
+}
+
+.tool-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    color: var(--text-secondary);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-full);
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.tool-btn:hover {
+    background-color: rgba(99, 102, 241, 0.1);
+    color: var(--color-primary);
+}
+
+.submit-btn {
+    background-color: var(--color-primary);
+    color: white;
+    border-radius: var(--radius-full);
+    padding: var(--spacing-2) var(--spacing-5);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    transition: background-color var(--transition-fast);
+}
+
+.submit-btn:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+}
+
+.submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.feed-stream {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-6);
+}
+
+.post-card {
+    padding: var(--spacing-5);
+}
+
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-4);
+}
+
+.post-author-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+}
+
+.post-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background-color: var(--text-tertiary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.post-author-name {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.post-time {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+.icon-btn {
+    color: var(--text-tertiary);
+    padding: var(--spacing-1);
+    border-radius: var(--radius-full);
+}
+
+.icon-btn:hover {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+}
+
+.post-body p {
+    white-space: pre-wrap;
+    margin-bottom: var(--spacing-4);
+    font-size: 0.95rem;
+}
+
+.post-image-container {
+    margin: var(--spacing-4) calc(-1 * var(--spacing-5));
+    background-color: var(--bg-main);
+    text-align: center;
+}
+
+.post-image {
+    max-height: 400px;
+    margin: 0 auto;
+}
+
+.post-actions {
+    display: flex;
+    gap: var(--spacing-4);
+    border-top: 1px solid var(--border-light);
+    padding-top: var(--spacing-3);
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.action-btn:hover {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+}
+
+.action-btn.active {
+    color: var(--color-primary);
+}
+
+.load-more-btn {
+    width: 100%;
+    padding: var(--spacing-3);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    color: var(--color-primary);
+    transition: all var(--transition-fast);
+}
+
+.load-more-btn:hover {
+    background-color: rgba(99, 102, 241, 0.05);
+}
+
+.loading-spinner,
+.end-of-feed,
+.empty-feed {
+    text-align: center;
+    color: var(--text-tertiary);
+    padding: var(--spacing-4) 0;
+}
+
+@media (max-width: 1024px) {
+    .feed-sidebar {
+        display: none;
+    }
+}

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -17,7 +18,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 @Controller('events')
 @UseGuards(JwtAuthGuard)
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(private readonly eventsService: EventsService) { }
 
   // Alumni/Admin: create event
   @Post()
@@ -33,6 +34,12 @@ export class EventsController {
     return this.eventsService.findAll();
   }
 
+  // Any authenticated: get event by id
+  @Get(':id')
+  findById(@Param('id') id: string) {
+    return this.eventsService.findById(id);
+  }
+
   // Alumni/Admin: update status (upcoming → live → ended)
   @Patch(':id/status')
   @UseGuards(RolesGuard)
@@ -45,6 +52,12 @@ export class EventsController {
   @Post(':id/rsvp')
   rsvp(@Param('id') id: string, @Request() req) {
     return this.eventsService.rsvp(id, req.user.sub);
+  }
+
+  // G4.3: Any authenticated: cancel (remove) their RSVP
+  @Delete(':id/rsvp')
+  cancelRsvp(@Param('id') id: string, @Request() req) {
+    return this.eventsService.cancelRsvp(id, req.user.sub);
   }
 
   // Alumni/Admin: view attendees

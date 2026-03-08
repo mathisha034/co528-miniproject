@@ -20,16 +20,9 @@ export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
-  /**
-   * REST trigger for external services (job/feed/event) to emit notifications.
-   * Accepts the full CreateNotificationDto — caller MUST supply idempotencyKey.
-   */
-  @Post('notify')
-  async notify(@Body() dto: CreateNotificationDto) {
-    return this.notificationsService.create(dto);
-  }
+
 
   /** Emit an internal event (used for testing event listener wiring). */
   @Post('emit/:event')
@@ -48,6 +41,13 @@ export class NotificationsController {
       req.user.sub,
       unread === 'true',
     );
+  }
+
+  /** GET unread notification count */
+  @Get('count')
+  async getUnreadCount(@Request() req) {
+    const count = await this.notificationsService.countUnread(req.user.sub);
+    return { count };
   }
 
   /** Mark a single notification as read */

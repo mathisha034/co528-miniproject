@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
@@ -16,7 +16,7 @@ export class NotificationsService {
   constructor(
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
-  ) {}
+  ) { }
 
   /**
    * Create a notification with idempotency enforcement.
@@ -38,7 +38,7 @@ export class NotificationsService {
         }
 
         return this.notificationModel.create({
-          userId: new Types.ObjectId(dto.userId),
+          userId: dto.userId,
           type: dto.type,
           message: dto.message,
           idempotencyKey: dto.idempotencyKey,
@@ -59,10 +59,18 @@ export class NotificationsService {
     unreadOnly = false,
   ): Promise<NotificationDocument[]> {
     const filter: Record<string, unknown> = {
-      userId: new Types.ObjectId(userId),
+      userId: userId,
     };
     if (unreadOnly) filter.read = false;
     return this.notificationModel.find(filter).sort({ createdAt: -1 }).exec();
+  }
+
+  /** Count all unread notifications for a user. */
+  async countUnread(userId: string): Promise<number> {
+    return this.notificationModel.countDocuments({
+      userId: userId,
+      read: false,
+    });
   }
 
   /** Mark a single notification as read. */
@@ -70,17 +78,21 @@ export class NotificationsService {
     notificationId: string,
     userId: string,
   ): Promise<NotificationDocument | null> {
-    return this.notificationModel.findOneAndUpdate(
-      { _id: notificationId, userId: new Types.ObjectId(userId) },
+    const updated = await this.notificationModel.findOneAndUpdate(
+      { _id: notificationId, userId: userId },
       { $set: { read: true } },
       { new: true },
     );
+    if (!updated) {
+      throw new NotFoundException('Notification not found or unauthorized');
+    }
+    return updated;
   }
 
   /** Mark all notifications for a user as read. */
   async markAllRead(userId: string): Promise<{ modified: number }> {
     const result = await this.notificationModel.updateMany(
-      { userId: new Types.ObjectId(userId), read: false },
+      { userId: userId, read: false },
       { $set: { read: true } },
     );
     return { modified: result.modifiedCount };
