@@ -7,6 +7,7 @@ import './Profile.css';
 interface UserProfile {
     _id: string;
     email: string;
+    name?: string;
     displayName?: string;
     bio?: string;
     department?: string;
@@ -30,7 +31,7 @@ export const Profile: React.FC = () => {
             const res = await api.get('/api/v1/user-service/users/me');
             setProfile(res.data);
             setEditFormData({
-                displayName: res.data.displayName || user?.firstName + ' ' + user?.lastName || '',
+                displayName: res.data.name || res.data.displayName || '',
                 bio: res.data.bio || '',
                 department: res.data.department || '',
                 skills: res.data.skills?.join(', ') || ''
@@ -62,7 +63,7 @@ export const Profile: React.FC = () => {
         e.preventDefault();
         try {
             const payload = {
-                displayName: editFormData.displayName,
+                name: editFormData.displayName,
                 bio: editFormData.bio,
                 department: editFormData.department,
                 skills: editFormData.skills.split(',').map(s => s.trim()).filter(Boolean)
@@ -102,11 +103,11 @@ export const Profile: React.FC = () => {
                             <div className="profile-cover"></div>
                             <div className="profile-header-content">
                                 <div className="profile-avatar-large">
-                                    {profile.displayName?.charAt(0) || user?.firstName?.charAt(0) || 'U'}
+                                    {(profile.name || profile.displayName)?.charAt(0) || user?.firstName?.charAt(0) || 'U'}
                                 </div>
                                 <div className="profile-header-info">
                                     <div className="profile-name-row">
-                                        <h2>{profile.displayName || user?.name || 'Unnamed User'}</h2>
+                                        <h2>{profile.name || profile.displayName || user?.name || 'Unnamed User'}</h2>
                                         <button className="secondary-btn small" onClick={() => setIsEditing(true)}>
                                             <Edit2 size={16} /> Edit Profile
                                         </button>

@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import keycloak from '../lib/keycloak';
+import keycloak, { keycloakInitPromise } from '../lib/keycloak';
+
+// keycloakInitPromise is defined in lib/keycloak.ts so the axios interceptor
+// can also await it — ensuring no API call fires without a token.
 
 interface AuthContextType {
     isAuthenticated: boolean;
@@ -28,29 +31,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         let isMounted = true;
-        const initKeycloak = async () => {
-            try {
-                const authenticated = await keycloak.init({
-                    onLoad: 'check-sso',
-                    silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
-                    pkceMethod: 'S256',
-                });
 
-                if (isMounted) {
-                    setIsAuthenticated(authenticated);
-                    if (authenticated) {
-                        const profile = await keycloak.loadUserProfile();
-                        setUser(profile);
-                    }
-                    setIsInitialized(true);
+        keycloakInitPromise
+            .then(async (authenticated) => {
+                if (!isMounted) return;
+                setIsAuthenticated(authenticated);
+                if (authenticated) {
+                    const profile = await keycloak.loadUserProfile();
+                    if (isMounted) setUser(profile);
                 }
-            } catch (error) {
+                setIsInitialized(true);
+            })
+            .catch((error) => {
                 console.error('Keycloak init failed', error);
                 if (isMounted) setIsInitialized(true);
-            }
-        };
-
-        initKeycloak();
+            });
 
         return () => {
             isMounted = false;

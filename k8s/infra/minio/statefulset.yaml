@@ -17,6 +17,21 @@ spec:
       port: 9001
       targetPort: 9001
 ---
+# ClusterIP service used by the NGINX ingress backend (headless services cannot be ingress backends)
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-http
+  namespace: miniproject
+spec:
+  selector:
+    app: minio
+  ports:
+    - name: api
+      protocol: TCP
+      port: 9000
+      targetPort: 9000
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

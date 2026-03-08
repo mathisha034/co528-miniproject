@@ -35,7 +35,14 @@ export const Jobs: React.FC = () => {
             const res = await api.get('/api/v1/job-service/jobs', {
                 params: { type: currentFilter !== 'all' ? currentFilter : undefined }
             });
-            setJobs(res.data || []);
+            // Normalise each job so applications/requirements are always arrays and description is always a string
+            const raw = Array.isArray(res.data) ? res.data : (res.data?.jobs ?? res.data?.items ?? []);
+            setJobs(raw.map((j: any) => ({
+                ...j,
+                applications: j.applications ?? [],
+                requirements: j.requirements ?? [],
+                description: j.description ?? '',
+            })));
         } catch (err) {
             console.error('Failed to load jobs', err);
         } finally {
@@ -55,7 +62,7 @@ export const Jobs: React.FC = () => {
             // Update UI optimistically
             const userId = user?.sub || 'me';
             setJobs(prev => prev.map(job =>
-                job._id === jobId ? { ...job, applications: [...job.applications, userId] } : job
+                job._id === jobId ? { ...job, applications: [...(job.applications ?? []), userId] } : job
             ));
         } catch (err) {
             console.error('Application failed', err);
@@ -114,7 +121,7 @@ export const Jobs: React.FC = () => {
                     <div className="loading-state">Loading opportunities...</div>
                 ) : jobs.length > 0 ? (
                     jobs.map(job => {
-                        const hasApplied = job.applications.includes(user?.sub || 'me');
+                        const hasApplied = (job.applications ?? []).includes(user?.sub || 'me');
 
                         return (
                             <div key={job._id} className="job-card card">
@@ -139,13 +146,13 @@ export const Jobs: React.FC = () => {
                                     <span className="meta-item"><Clock size={16} /> Deadline: {new Date(job.deadline).toLocaleDateString()}</span>
                                 </div>
 
-                                <p className="job-description">{job.description.substring(0, 150)}{job.description.length > 150 ? '...' : ''}</p>
+                                <p className="job-description">{(job.description ?? '').substring(0, 150)}{(job.description ?? '').length > 150 ? '...' : ''}</p>
 
                                 <div className="job-tags">
-                                    {job.requirements.slice(0, 3).map((req, idx) => (
+                                    {(job.requirements ?? []).slice(0, 3).map((req, idx) => (
                                         <span key={idx} className="job-tag">{req}</span>
                                     ))}
-                                    {job.requirements.length > 3 && <span className="job-tag">+{job.requirements.length - 3} more</span>}
+                                    {(job.requirements ?? []).length > 3 && <span className="job-tag">+{(job.requirements ?? []).length - 3} more</span>}
                                 </div>
                             </div>
                         );

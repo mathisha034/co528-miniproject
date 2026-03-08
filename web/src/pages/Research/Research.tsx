@@ -41,7 +41,17 @@ export const Research: React.FC = () => {
         try {
             setLoading(true);
             const res = await api.get('/api/v1/research-service/research');
-            setProjects(res.data || []);
+            const raw = Array.isArray(res.data) ? res.data : (res.data?.projects ?? res.data?.items ?? []);
+            setProjects(raw.map((p: any) => ({
+                ...p,
+                collaborators: (p.collaborators ?? []).map((c: any) => ({
+                    ...c,
+                    email: c.email ?? c.userId ?? 'unknown',
+                    role: c.role ?? 'collaborator',
+                })),
+                documents: p.documents ?? [],
+                status: p.status ?? 'active',
+            })));
         } catch (err) {
             console.error('Failed to load projects', err);
         } finally {
@@ -145,7 +155,7 @@ export const Research: React.FC = () => {
                                     <div className="collab-avatar owner tooltip" title="Project Owner">O</div>
                                     {project.collaborators?.map((c, idx) => (
                                         <div key={idx} className="collab-avatar tooltip" title={`${c.email} (${c.role})`}>
-                                            {c.email.charAt(0).toUpperCase()}
+                                            {(c.email ?? '?').charAt(0).toUpperCase()}
                                         </div>
                                     ))}
                                 </div>
@@ -180,7 +190,7 @@ export const Research: React.FC = () => {
                                                 <FileText size={16} className="doc-icon" />
                                                 <div className="doc-info">
                                                     <a href={doc.url} target="_blank" rel="noopener noreferrer" className="doc-name">{doc.name}</a>
-                                                    <span className="doc-size">{(doc.size / 1024).toFixed(1)} KB</span>
+                                                    <span className="doc-size">{((doc.size ?? 0) / 1024).toFixed(1)} KB</span>
                                                 </div>
                                             </div>
                                         ))

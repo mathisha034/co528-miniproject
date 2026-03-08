@@ -20,7 +20,7 @@ interface ServiceHealth {
 const SERVICES = ['user-service', 'feed-service', 'job-service', 'event-service', 'notification-service', 'research-service', 'analytics-service'];
 
 export const Dashboard: React.FC = () => {
-    const { user } = useAuth();
+    const { user, hasRole } = useAuth();
     const [stats, setStats] = useState<StatData>({ users: 0, posts: 0, jobs: 0, events: 0 });
     const [healthStatus, setHealthStatus] = useState<ServiceHealth[]>(
         SERVICES.map(name => ({ name, status: 'loading', latency: 0 }))
@@ -28,13 +28,12 @@ export const Dashboard: React.FC = () => {
     const [feedPreview, setFeedPreview] = useState<any[]>([]);
 
     useEffect(() => {
-        // Fetch stats from analytics-service
-        api.get('/api/v1/analytics-service/analytics/overview')
-            .then(res => setStats(res.data))
-            .catch(() => {
-                // Fallback: try individual service counts
-                console.warn('Analytics overview unavailable, showing defaults');
-            });
+        // analytics/overview is admin-only — skip call for non-admins to avoid 403
+        if (hasRole('admin')) {
+            api.get('/api/v1/analytics-service/analytics/overview')
+                .then(res => setStats(res.data))
+                .catch(() => console.warn('Analytics overview unavailable, showing defaults'));
+        }
 
         // Fetch feed preview
         api.get('/api/v1/feed-service/feed?page=1&limit=3')

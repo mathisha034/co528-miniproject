@@ -9,6 +9,16 @@ const keycloak = new Keycloak({
     clientId: 'react-web-app',
 });
 
+// Module-level singleton — init runs ONCE at module load time.
+// Both AuthContext and the axios interceptor share this same promise so
+// API calls always wait for authentication to complete before attaching tokens.
+export const keycloakInitPromise: Promise<boolean> = keycloak.init({
+    onLoad: 'login-required',  // redirects to Keycloak if not authenticated,
+                               // exchanges ?code= for token on the way back
+    pkceMethod: 'S256',
+    checkLoginIframe: false,   // prevents background iframe pings through proxy
+});
+
 export const getKeycloakToken = () => keycloak.token;
 
 export default keycloak;

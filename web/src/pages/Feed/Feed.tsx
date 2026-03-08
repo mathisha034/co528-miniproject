@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Image, Send, ThumbsUp, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { api } from '../../lib/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { proxyMediaUrl } from '../../lib/mediaUrl';
 import './Feed.css';
 
 interface Post {
@@ -28,6 +29,10 @@ export const Feed: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    // Track posts whose image failed to load so we can show the placeholder instead
+    const [imgErrors, setImgErrors] = useState<Set<string>>(new Set());
+    const handleImgError = (postId: string) =>
+        setImgErrors(prev => new Set(prev).add(postId));
 
     const fetchPosts = async (pageNum: number, currentFilter: string, append = false) => {
         try {
@@ -40,14 +45,18 @@ export const Feed: React.FC = () => {
                 }
             });
 
-            const newPosts = res.data.items || [];
+            const data = res.data;
+            // Handle both {items, meta} and plain array responses
+            const newPosts = (Array.isArray(data) ? data : data.items ?? data.posts ?? [])
+                .map((p: any) => ({ ...p, likes: p.likes ?? [], comments: p.comments ?? [] }));
             if (append) {
                 setPosts(prev => [...prev, ...newPosts]);
             } else {
                 setPosts(newPosts);
             }
 
-            setHasMore(pageNum < res.data.meta.totalPages);
+            const totalPages = data.meta?.totalPages ?? data.totalPages ?? 1;
+            setHasMore(pageNum < totalPages);
         } catch (err) {
             console.error('Failed to fetch posts', err);
         } finally {
@@ -80,16 +89,26 @@ export const Feed: React.FC = () => {
 
         try {
             setIsSubmitting(true);
-            const formData = new FormData();
-            if (content.trim()) formData.append('content', content);
-            if (imageFile) formData.append('image', imageFile);
 
-            const res = await api.post('/api/v1/feed-service/feed', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+            // Step 1: upload image first (if any) to get an imageUrl
+            let imageUrl: string | undefined;
+            if (imageFile) {
+                const formData = new FormData();
+                formData.append('file', imageFile);          // backend expects field name 'file'
+                const uploadRes = await api.post('/api/v1/feed-service/feed/upload', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                imageUrl = uploadRes.data.imageUrl;
+            }
+
+            // Step 2: create post with JSON body
+            const res = await api.post('/api/v1/feed-service/feed', {
+                content: content.trim() || ' ',   // MinLength(1) — space satisfies it when image-only
+                ...(imageUrl ? { imageUrl } : {}),
             });
 
             // Optimistic insert at top
-            setPosts(prev => [res.data, ...prev]);
+            setPosts(prev => [{ ...res.data, likes: res.data.likes ?? [], comments: res.data.comments ?? [] }, ...prev]);
             setContent('');
             setImageFile(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -106,10 +125,11 @@ export const Feed: React.FC = () => {
             const currentUserId = user?.sub || 'me';
             setPosts(prev => prev.map(p => {
                 if (p._id === postId) {
-                    const hasLiked = p.likes.includes(currentUserId);
+                    const likes = p.likes ?? [];
+                    const hasLiked = likes.includes(currentUserId);
                     return {
                         ...p,
-                        likes: hasLiked ? p.likes.filter(id => id !== currentUserId) : [...p.likes, currentUserId]
+                        likes: hasLiked ? likes.filter(id => id !== currentUserId) : [...likes, currentUserId]
                     };
                 }
                 return p;
@@ -204,24 +224,34 @@ export const Feed: React.FC = () => {
 
                                 <div className="post-body">
                                     <p>{post.content}</p>
-                                    {post.imageUrl && (
-                                        <div className="post-image-container">
-                                            <img src={post.imageUrl} alt="Post attachment" className="post-image" />
-                                        </div>
-                                    )}
+                                    <div className="post-image-container">
+                                        {post.imageUrl && !imgErrors.has(post._id) ? (
+                                            <img
+                                                src={proxyMediaUrl(post.imageUrl)}
+                                                alt="Post attachment"
+                                                className="post-image"
+                                                onError={() => handleImgError(post._id)}
+                                            />
+                                        ) : (
+                                            <div className="post-image-placeholder">
+                                                <Image size={32} strokeWidth={1.2} />
+                                                <span>{post.imageUrl ? 'Image unavailable' : 'No image attached'}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="post-actions">
                                     <button
-                                        className={`action-btn ${post.likes.includes(user?.sub || 'me') ? 'active' : ''}`}
+                                        className={`action-btn ${(post.likes ?? []).includes(user?.sub || 'me') ? 'active' : ''}`}
                                         onClick={() => handleLike(post._id)}
                                     >
                                         <ThumbsUp size={18} />
-                                        <span>{post.likes.length} Likes</span>
+                                        <span>{(post.likes ?? []).length} Likes</span>
                                     </button>
                                     <button className="action-btn">
                                         <MessageSquare size={18} />
-                                        <span>{post.comments.length} Comments</span>
+                                        <span>{(post.comments ?? []).length} Comments</span>
                                     </button>
                                 </div>
                             </div>

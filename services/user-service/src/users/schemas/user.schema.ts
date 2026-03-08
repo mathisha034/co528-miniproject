@@ -32,6 +32,9 @@ export class User {
   bio: string;
 
   @Prop({ default: '' })
+  department: string;
+
+  @Prop({ default: '' })
   avatar: string;
 
   @Prop({ type: [String], default: [] })

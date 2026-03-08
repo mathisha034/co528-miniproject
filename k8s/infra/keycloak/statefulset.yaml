@@ -1,3 +1,4 @@
+# Headless service — required for StatefulSet DNS (keycloak-0.keycloak.miniproject...)
 apiVersion: v1
 kind: Service
 metadata:
@@ -5,6 +6,20 @@ metadata:
   namespace: miniproject
 spec:
   clusterIP: None
+  selector:
+    app: keycloak
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+# ClusterIP service — used by NGINX Ingress for /auth routing
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-http
+  namespace: miniproject
+spec:
   selector:
     app: keycloak
   ports:
@@ -31,7 +46,7 @@ spec:
       containers:
         - name: keycloak
           image: quay.io/keycloak/keycloak:23.0.7
-          args: ["start-dev"]
+          args: ["start-dev", "--http-relative-path=/auth"]
           ports:
             - containerPort: 8080
               name: keycloak

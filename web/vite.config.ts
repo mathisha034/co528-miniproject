@@ -23,6 +23,13 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      // Proxy MinIO object storage — rewrites /minio/... → http://miniproject.local/minio/...
+      // which the minio-ingress then strips to just /... before hitting MinIO
+      '/minio': {
+        target: BACKEND,
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 })

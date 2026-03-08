@@ -1,5 +1,5 @@
 import axios from 'axios';
-import keycloak from './keycloak';
+import keycloak, { keycloakInitPromise } from './keycloak';
 
 // baseURL is intentionally empty — each component constructs the full path
 // Service routes follow the ingress pattern: /{service-name}/api/v1/{endpoint}
@@ -12,10 +12,15 @@ export const api = axios.create({
     },
 });
 
-// Request interceptor to attach Bearer token
+// Request interceptor to attach Bearer token.
+// Awaits keycloakInitPromise first so that requests fired during initial render
+// (before the token is available) still get the Authorization header.
 api.interceptors.request.use(
     async (config) => {
-        // If token exists and is expired or close to expiry, refresh it
+        // Wait for Keycloak to finish the auth code exchange before trying to
+        // read the token — fixes 401s on the first batch of requests after login.
+        await keycloakInitPromise;
+
         if (keycloak.token) {
             try {
                 await keycloak.updateToken(30); // Refresh if it expires in <= 30 seconds

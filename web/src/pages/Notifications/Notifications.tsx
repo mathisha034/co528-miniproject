@@ -22,8 +22,14 @@ export const Notifications: React.FC = () => {
         try {
             setLoading(true);
             const res = await api.get('/api/v1/notification-service/notifications');
-            const items = Array.isArray(res.data) ? res.data : res.data.items || [];
-            setNotifications(items);
+            const raw = Array.isArray(res.data) ? res.data : (res.data?.items ?? res.data?.notifications ?? []);
+            setNotifications(raw.map((n: any) => ({
+                ...n,
+                type: n.type ?? '',
+                title: n.title ?? '',
+                content: n.message ?? n.content ?? '',
+                isRead: n.isRead ?? n.read ?? false,
+            })));
         } catch (err) {
             console.error('Failed to load notifications', err);
         } finally {
@@ -56,10 +62,23 @@ export const Notifications: React.FC = () => {
         }
     };
 
-    const getIconForType = (type: string) => {
-        if (type.includes('POST')) return <MessageSquare size={20} className="notif-icon info" />;
-        if (type.includes('JOB')) return <Briefcase size={20} className="notif-icon success" />;
-        if (type.includes('EVENT')) return <Calendar size={20} className="notif-icon warning" />;
+    const getTitleForType = (type: string, fallback: string) => {
+        if (fallback) return fallback; // backend supplied a real title
+        const map: Record<string, string> = {
+            post_liked: 'Post Liked',
+            job_applied: 'Job Application',
+            job_status_changed: 'Job Status Updated',
+            event_status_changed: 'Event Update',
+            general: 'Notification',
+        };
+        return map[type] ?? 'Notification';
+    };
+
+    const getIconForType = (type: string = '') => {
+        const t = (type ?? '').toLowerCase();
+        if (t.includes('post')) return <MessageSquare size={20} className="notif-icon info" />;
+        if (t.includes('job')) return <Briefcase size={20} className="notif-icon success" />;
+        if (t.includes('event')) return <Calendar size={20} className="notif-icon warning" />;
         return <Bell size={20} className="notif-icon primary" />;
     };
 
@@ -97,7 +116,7 @@ export const Notifications: React.FC = () => {
 
                             <div className="notif-content">
                                 <div className="notif-title-row">
-                                    <h4>{notif.title}</h4>
+                                    <h4>{getTitleForType(notif.type, notif.title)}</h4>
                                     <span className="notif-time">{new Date(notif.createdAt).toLocaleString()}</span>
                                 </div>
                                 <p className="notif-text">{notif.content}</p>

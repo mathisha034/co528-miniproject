@@ -27,6 +27,10 @@ export class UpdateUserDto {
 
   @IsString()
   @IsOptional()
+  department?: string;
+
+  @IsString()
+  @IsOptional()
   avatar?: string;
 
   @IsArray()

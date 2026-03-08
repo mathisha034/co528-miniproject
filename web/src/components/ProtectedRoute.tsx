@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,15 +8,11 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
-    const { isAuthenticated, isInitialized, hasRole, login } = useAuth();
+    const { isAuthenticated, isInitialized, hasRole } = useAuth();
 
-    // Trigger login AFTER render — calling side effects during render is forbidden in React
-    // and causes redirect loops in StrictMode.
-    useEffect(() => {
-        if (isInitialized && !isAuthenticated) {
-            login();
-        }
-    }, [isInitialized, isAuthenticated, login]);
+    // No manual login() call needed — AuthContext uses onLoad:'login-required'
+    // which redirects to Keycloak automatically if not authenticated, and
+    // processes the ?code= on the way back before React even renders.
 
     if (!isInitialized) {
         return (

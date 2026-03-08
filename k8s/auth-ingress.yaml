@@ -1,0 +1,32 @@
+# Separate ingress for Keycloak /auth routes.
+#
+# Keycloak 23 uses / as its root (not /auth), so the ingress must strip
+# the /auth prefix:
+#   Browser:  http://miniproject.local/auth/realms/miniproject/...
+#   Keycloak: http://keycloak-http:8080/realms/miniproject/...
+#
+# Separate ingress for Keycloak /auth routes.
+# Keycloak is started with --http-relative-path=/auth so it natively serves
+# at /auth/... — no URL rewriting needed, cookies are set with Path=/auth/...
+# which the browser sends back correctly.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak-auth-ingress
+  namespace: miniproject
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: miniproject.local
+      http:
+        paths:
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak-http
+                port:
+                  number: 8080

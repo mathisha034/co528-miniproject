@@ -8,3 +8,5 @@ resources:
   - services/
   - certificate.yaml
   - ingress.yaml
+  - auth-ingress.yaml
+  - minio-ingress.yaml

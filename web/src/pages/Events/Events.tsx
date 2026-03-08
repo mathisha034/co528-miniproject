@@ -30,8 +30,13 @@ export const Events: React.FC = () => {
         try {
             setLoading(true);
             const res = await api.get('/api/v1/event-service/events');
-            // Assume API returns { items: Event[] } or Event[]
-            setEvents(res.data.items || res.data || []);
+            const raw = res.data.items || (Array.isArray(res.data) ? res.data : []);
+            setEvents(raw.map((e: any) => ({
+                ...e,
+                attendees: e.attendees ?? [],
+                format: e.format ?? 'in-person',
+                description: e.description ?? '',
+            })));
         } catch (err) {
             console.error('Failed to load events', err);
         } finally {
@@ -45,15 +50,20 @@ export const Events: React.FC = () => {
 
     const handleRSVP = async (eventId: string, isAttending: boolean) => {
         try {
-            const endpoint = isAttending ? `/api/v1/event-service/events/${eventId}/cancel` : `/api/v1/event-service/events/${eventId}/rsvp`;
-            await api.post(endpoint);
+            const endpoint = `/api/v1/event-service/events/${eventId}/rsvp`;
+            if (isAttending) {
+                await api.delete(endpoint);
+            } else {
+                await api.post(endpoint);
+            }
 
             const userId = user?.sub || 'me';
             setEvents(prev => prev.map(ev => {
                 if (ev._id === eventId) {
+                    const attendees = ev.attendees ?? [];
                     const newAttendees = isAttending
-                        ? ev.attendees.filter(id => id !== userId)
-                        : [...ev.attendees, userId];
+                        ? attendees.filter(id => id !== userId)
+                        : [...attendees, userId];
                     return { ...ev, attendees: newAttendees };
                 }
                 return ev;
@@ -109,11 +119,12 @@ export const Events: React.FC = () => {
                     <div className="loading-state">Loading events...</div>
                 ) : events.length > 0 ? (
                     events.map(event => {
-                        const isAttending = event.attendees.includes(user?.sub || 'me');
-                        const eventDate = new Date(event.date);
-                        const month = eventDate.toLocaleString('default', { month: 'short' });
-                        const day = eventDate.getDate();
-                        const time = eventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const isAttending = (event.attendees ?? []).includes(user?.sub || 'me');
+                        const eventDate = event.date ? new Date(event.date) : null;
+                        const validDate = eventDate && !isNaN(eventDate.getTime());
+                        const month = validDate ? eventDate!.toLocaleString('default', { month: 'short' }) : '—';
+                        const day = validDate ? eventDate!.getDate() : '—';
+                        const time = validDate ? eventDate!.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBD';
 
                         return (
                             <div key={event._id} className="event-card card">
@@ -127,14 +138,14 @@ export const Events: React.FC = () => {
                                         <h3 className="event-title">{event.title}</h3>
                                         <span className={`event-format-badge ${event.format}`}>
                                             {event.format === 'online' ? <Video size={14} /> : <MapPin size={14} />}
-                                            {event.format.charAt(0).toUpperCase() + event.format.slice(1)}
+                                            {(event.format ?? '').charAt(0).toUpperCase() + (event.format ?? '').slice(1)}
                                         </span>
                                     </div>
 
                                     <div className="event-meta">
                                         <span className="meta-item"><Calendar size={16} /> {time}</span>
                                         <span className="meta-item"><MapPin size={16} /> {event.location}</span>
-                                        <span className="meta-item"><Users size={16} /> {event.attendees.length} Attendees</span>
+                                        <span className="meta-item"><Users size={16} /> {(event.attendees ?? []).length} Attendees</span>
                                     </div>
 
                                     <p className="event-description">{event.description}</p>
