@@ -1,37 +1,100 @@
 # API & Infrastructure Documentation
 
-This guide provides technical reference documentation for the infrastructure policies and API conventions governing the MiniProject Microservices platform.
+This document records the current external API contract behind ingress, including corrected endpoint paths and known missing implementations.
 
-## 1. REST API Standards
-All microservices communicate externally via standard RESTful protocols routed through the NGINX Ingress Controller at `api.miniproject.local`.
+## 1. External API Routing Standard
 
-- **Base URL**: `http://api.miniproject.local/api/v1/{service-prefix}`
-- **Authentication**: Bearer Token (JWT provided by Keycloak). Passed via the `Authorization: Bearer <TOKEN>` header.
-- **Content-Type**: `application/json` is strictly required for POST/PUT/PATCH operations.
+All external requests go through ingress host:
 
-**Global API Conventions:**
-- Success Responses: `200 OK`, `201 Created`
-- Client Errors: `400 Bad Request` (Validation), `401 Unauthorized` (Invalid JWT), `403 Forbidden` (Insufficient Roles), `404 Not Found`
-- Server Errors: `500 Internal Server Error`, `504 Gateway Timeout`
+- Host: http://miniproject.local
+- External pattern: /api/v1/{service-name}-service/{controller-path}
+- Example: /api/v1/user-service/users/me
 
-## 2. Infrastructure Policies
+Authentication:
+
+- Authorization header is required for protected routes: Bearer <JWT>
+
+HTTP conventions:
+
+- Success: 200, 201
+- Client errors: 400, 401, 403, 404
+- Server errors: 500, 504
+
+## 2. Wrong URL -> Correct URL
+
+The following were identified as wrong/outdated URL forms.
+
+| Wrong URL | Correct URL |
+|---|---|
+| http://api.miniproject.local/api/v1/{service-prefix} | http://miniproject.local/api/v1/{service-name}-service/{controller-path} |
+| /api/v1/users/me | /api/v1/user-service/users/me |
+| /api/v1/feed | /api/v1/feed-service/feed |
+| /api/v1/jobs | /api/v1/job-service/jobs |
+| /api/v1/events | /api/v1/event-service/events |
+| /api/v1/notifications | /api/v1/notification-service/notifications |
+| /api/v1/research | /api/v1/research-service/research |
+| /api/v1/analytics/summary | /api/v1/analytics-service/analytics/overview |
+| /api/v1/analytics/posts | /api/v1/analytics-service/analytics/posts |
+| /api/v1/analytics/jobs | /api/v1/analytics-service/analytics/jobs |
+| /api/v1/analytics/users | /api/v1/analytics-service/analytics/users |
+| /api/v1/analytics/latencies | /api/v1/analytics-service/analytics/latencies |
+| /api/v1/messages/:conversationId | MISSING: no messages REST controller is currently implemented |
+
+## 3. Missing Implementations
+
+Items documented in plans/older docs but not implemented in the current backend codebase.
+
+### TODO: Feed comments endpoints are missing
+
+- MISSING: POST /api/v1/feed-service/feed/:id/comments
+- MISSING: GET /api/v1/feed-service/feed/:id/comments
+- Status: No controller methods exist for comments in feed controller.
+
+### TODO: Messaging REST conversation endpoint is missing
+
+- MISSING: GET /api/v1/messaging-service/messages/:conversationId
+- Status: Messaging service currently exposes health endpoint only.
+
+### TODO: Messaging WebSocket endpoint is not implemented/documented in backend service
+
+- MISSING: WS /api/v1/messaging-service/ws
+- Status: No websocket gateway/controller currently present in messaging service.
+
+## 4. Infrastructure Policies
 
 ### Logging
-Centralized Winston-based logging interceptors are deployed globally across all NestJS bootstrapped microservices (`LoggingInterceptor`).
-Logs are output to `stdout`/`stderr` in structured formats, captured systematically by the Kubernetes container engine (`kubectl logs -l app=feed-service`). Request IDs are bound continuously (`UUIDv4`) allowing tracing across the stack.
+
+- Most services register a global Nest `LoggingInterceptor` in `main.ts` to log request/response timing and status.
+- `user-service` additionally wires a global `AllExceptionsFilter` to normalize and log unhandled errors.
+- Operational log collection is currently via Kubernetes stdout/stderr (`kubectl logs`) and can be shipped by the cluster logging stack.
 
 ### Rate Limiting
-Endpoint DDoS mitigation is primarily handled by the cluster-wide NGINX Ingress Controller:
-- `nginx.ingress.kubernetes.io/limit-rps`: Protects API bottlenecks globally.
-- Secondary internal rate limiting is accomplished via NestJS `@nestjs/throttler` plugins, dropping anomalous bursts locally per-pod.
 
-### Database Indexing Strategy
-MongoDB utilizes specific B-Tree Document Indexing applied via Mongoose Schema configurations to optimize reading heavily accessed collections:
-- `UserSchema`: Indexed heavily on `keycloakId` and `email` for rapid authentication lookups.
-- `PostSchema`: Indexed negatively on `{ createdAt: -1 }` for near-instant pagination querying on the main Feed timeline.
-- `NotificationSchema`: Compound index on `{ userId: 1, read: 1, createdAt: -1 }` to quickly filter unread user inboxes.
+- Service-level throttling is actively enforced with `@nestjs/throttler`.
+- Services configure `ThrottlerModule.forRoot([{ ttl: 10000, limit: 100 }])` and bind `ThrottlerGuard` as `APP_GUARD`, which applies the default limit globally.
+- Kubernetes service configmaps expose the same values via `RATE_LIMIT_TTL=10000` and `RATE_LIMIT_MAX=100` for environment-level consistency.
+- Ingress currently performs path routing and rewrite only; no ingress rate-limit annotations are configured in the active ingress manifest.
 
-### Backup Strategy
-Persistent Volume Claims (PVCs) govern state storage for MongoDB, Redis, and MinIO.
-- **MinIO**: Buckets are synced to cold storage backups automatically using standard S3 `mc mirror` lifecycle commands.
-- **MongoDB**: `mongodump` cronjobs deployed natively as `CronJob` Kubernetes constructs extract BSON replicasets to centralized backup volumes securely daily, maintaining exact transactional consistency.
+### Data Layer
+
+- MongoDB is the primary datastore across domain services using Mongoose schemas.
+- Index strategy is implemented in schema files, not only in documentation. Examples include:
+	- `feed-service`: feed timeline indexes on `(userId, createdAt)` and `(createdAt)`.
+	- `job-service`: unique application index on `(jobId, applicantId)` to prevent duplicate applications.
+	- `notification-service`: compound index on `(userId, read, createdAt)` for inbox queries.
+	- `research-service`: indexes on `ownerId`, `status`, and `collaborators`.
+- Redis is actively used for feed caching with key-based invalidation (`feed:page:*`) and TTL-based entries (60 seconds).
+- MinIO is used for object storage and backup archives.
+
+### Metrics
+
+- `analytics-service` and `user-service` expose a `metrics` controller and collect Prometheus default metrics using `prom-client`.
+- Metric names are prefixed per service (for example `analytics_service_` and `user_service_`) to avoid collisions in shared scraping pipelines.
+
+### Backup
+
+- Backup execution is implemented as a Kubernetes `CronJob` named `mongodb-backup` in namespace `miniproject`.
+- Schedule is daily at midnight (`0 0 * * *`) and runs the backup container image `mini_project-backup:v2`.
+- The backup script performs streaming archive backups: `mongodump --archive | mc pipe myminio/backups/<timestamp>.archive`.
+- Secrets provide runtime credentials (`MONGO_URI`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`), and backups are written to MinIO bucket `backups`.
+- Disaster recovery support exists via a restore job manifest and restore script (`mongorestore` from selected archive).
