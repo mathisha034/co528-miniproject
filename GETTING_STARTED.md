@@ -144,7 +144,8 @@ The ingress uses the hostname `miniproject.local`. You must add it to your machi
 minikube ip
 # Example output: 192.168.49.2
 
-# Add to /etc/hosts (run with sudo)
+# Replace any old entry and add current IP (run with sudo)
+sudo sed -i '/miniproject\.local/d' /etc/hosts
 echo "$(minikube ip)  miniproject.local" | sudo tee -a /etc/hosts
 ```
 
@@ -153,7 +154,7 @@ Verify:
 ping -c1 miniproject.local
 ```
 
-> **Note:** If you restart Minikube and the IP changes, re-run the `echo` command above.  
+> **Note:** If you restart Minikube and the IP changes, re-run both host update commands above.  
 > Check the current entry: `grep miniproject.local /etc/hosts`
 
 ---
@@ -275,7 +276,7 @@ Keycloak manages all user authentication. You need to create the realm, roles, c
 In a **separate terminal** (keep this running during the setup steps):
 
 ```bash
-kubectl port-forward -n miniproject svc/keycloak 8080:8080
+kubectl port-forward -n miniproject svc/keycloak-http 8080:8080
 ```
 
 Keycloak admin UI is now available at: **http://localhost:8080**  
@@ -291,7 +292,7 @@ KC="kubectl exec -n miniproject keycloak-0 -- /opt/keycloak/bin/kcadm.sh"
 
 # Log in to the admin CLI
 $KC config credentials \
-  --server http://localhost:8080 \
+  --server http://localhost:8080/auth \
   --realm master \
   --user admin \
   --password admin
@@ -304,12 +305,22 @@ $KC create roles -r miniproject -s name=student
 $KC create roles -r miniproject -s name=alumni
 $KC create roles -r miniproject -s name=admin
 
-# Create the web client (public, no secret needed)
+# Create the web client used by the frontend
 $KC create clients -r miniproject \
-  -s clientId=web-client \
+  -s clientId=react-web-app \
   -s enabled=true \
   -s publicClient=true \
+  -s directAccessGrantsEnabled=true \
   -s 'redirectUris=["http://miniproject.local/*","http://localhost:5173/*"]' \
+  -s 'webOrigins=["+"]'
+
+# Create the test client used by E2E scripts
+$KC create clients -r miniproject \
+  -s clientId=e2e-test-client \
+  -s enabled=true \
+  -s publicClient=true \
+  -s directAccessGrantsEnabled=true \
+  -s 'redirectUris=["*"]' \
   -s 'webOrigins=["+"]'
 
 # Increase access token lifespan (optional — avoids token expiry during tests)
@@ -367,29 +378,30 @@ Every NestJS service validates incoming JWTs using the Keycloak realm's **RSA-25
 With the port-forward still open:
 
 ```bash
-curl -s http://localhost:8080/realms/miniproject \
-  | python3 -c "import sys,json; d=json.load(sys.stdin); \
-    [print(k['publicKey']) for k in d.get('keys',[]) if k.get('algorithm')=='RS256']" \
+curl -s http://localhost:8080/auth/realms/miniproject \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['public_key'])" \
   2>/dev/null
 
 # If the above fails, try:
-curl -s http://localhost:8080/realms/miniproject/protocol/openid-connect/certs | python3 -m json.tool
+curl -s http://localhost:8080/auth/realms/miniproject/protocol/openid-connect/certs | python3 -m json.tool
 ```
 
-Or: open **http://localhost:8080** → Realm Settings → Keys → RS256 row → click **Public key** button → copy the value.
+Or: open **http://localhost:8080/auth** → Realm Settings → Keys → RS256 row → click **Public key** button → copy the value.
 
 ### 8b. Update the Secret File
 
-Open `k8s/secrets/jwt-secret.yaml` and replace both `REPLACE_WITH_KEYCLOAK_REALM_PUBLIC_KEY` values with the key you copied:
+Open `k8s/secrets/jwt-secret.yaml` and replace both `REPLACE_WITH_KEYCLOAK_REALM_PUBLIC_KEY` values with a PEM-formatted key:
 
 ```yaml
 # k8s/secrets/jwt-secret.yaml
 stringData:
-  JWT_PUBLIC_KEY: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ..."     # ← paste here
-  KEYCLOAK_PUBLIC_KEY: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ..."  # ← same key
-  KEYCLOAK_URL: "http://keycloak:8080"
+  JWT_PUBLIC_KEY: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ...\n-----END PUBLIC KEY-----"
+  KEYCLOAK_PUBLIC_KEY: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ...\n-----END PUBLIC KEY-----"
+  KEYCLOAK_URL: "http://keycloak:8080/auth"
   KEYCLOAK_REALM: "miniproject"
 ```
+
+Important: preserve newline formatting in the PEM value. Invalid formatting will cause 401 errors across all services.
 
 Apply the updated secret:
 
@@ -401,10 +413,20 @@ kubectl apply -k k8s/secrets/
 
 ## 9. Deploy All Services
 
-Now deploy the full application stack — all 8 microservices, Network Policies, ConfigMaps, HPAs, and the Ingress:
+Now deploy the application stack (services + ingress). This avoids cert-manager dependency errors on fresh local clusters:
 
 ```bash
-kubectl apply -k k8s/
+kubectl apply -k k8s/services/
+kubectl apply -f k8s/network-policy.yaml
+kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/auth-ingress.yaml
+kubectl apply -f k8s/minio-ingress.yaml
+```
+
+If cert-manager CRDs are installed (`certificates.cert-manager.io`, `clusterissuers.cert-manager.io`), you can additionally apply:
+
+```bash
+kubectl apply -f k8s/certificate.yaml
 ```
 
 Wait for all service pods to reach `Running`:
@@ -439,10 +461,10 @@ kubectl logs -n miniproject deployment/<service-name> --previous
 ### Quick Smoke Test
 
 ```bash
-curl http://miniproject.local/api/v1/user-service/api/v1/users/health
+curl http://miniproject.local/api/v1/user-service/health
 # Expected: {"status":"ok","service":"user-service","timestamp":"..."}
 
-curl http://miniproject.local/api/v1/feed-service/api/v1/feed/health
+curl http://miniproject.local/api/v1/feed-service/health
 # Expected: {"status":"ok","service":"feed-service"}
 ```
 
@@ -636,7 +658,7 @@ kubectl rollout status deployment/feed-service -n miniproject --timeout=90s
 
 ```bash
 # In a separate terminal
-kubectl port-forward -n miniproject svc/keycloak 8080:8080
+kubectl port-forward -n miniproject svc/keycloak-http 8080:8080
 # Then open: http://localhost:8080  (admin / admin)
 ```
 
@@ -702,13 +724,13 @@ docker images | grep feed-service   # should show the image
 
 ### Service starts but returns `401` on every request
 
-The JWT public key in `k8s/secrets/jwt-secret.yaml` does not match the Keycloak realm key. Re-do Step 8: get the key from `http://localhost:8080/realms/miniproject`, update the file, and `kubectl apply -k k8s/secrets/`.
+The JWT public key in `k8s/secrets/jwt-secret.yaml` does not match the Keycloak realm key. Re-do Step 8: get the key from `http://localhost:8080/auth/realms/miniproject`, ensure PEM format/newlines are correct, update the file, and `kubectl apply -k k8s/secrets/`.
 
 ### Keycloak port-forward drops
 
 Re-run:
 ```bash
-kubectl port-forward -n miniproject svc/keycloak 8080:8080
+kubectl port-forward -n miniproject svc/keycloak-http 8080:8080
 ```
 
 ### `GET /feed/upload` returns `503`
@@ -754,6 +776,7 @@ node -e "const t=require('fs').readFileSync('.e2e_admin_token','utf8').trim(); c
 # 1. Start Minikube
 minikube start --cpus=4 --memory=8192 --driver=docker
 minikube addons enable ingress metrics-server
+sudo sed -i '/miniproject\.local/d' /etc/hosts
 echo "$(minikube ip)  miniproject.local" | sudo tee -a /etc/hosts
 
 # 2. Build images (inside Minikube's Docker)
@@ -773,7 +796,7 @@ kubectl apply -k k8s/secrets/
 kubectl apply -k k8s/infra/
 # Wait for: keycloak-0, minio-0, mongodb-0, redis-0 → 1/1 Running
 
-# 4. Set up Keycloak (in a separate terminal: kubectl port-forward -n miniproject svc/keycloak 8080:8080)
+# 4. Set up Keycloak (in a separate terminal: kubectl port-forward -n miniproject svc/keycloak-http 8080:8080)
 #    Then create realm / roles / clients / users — see Section 7
 
 # 5. Inject JWT public key into secret — see Section 8
@@ -781,7 +804,11 @@ kubectl apply -k k8s/infra/
 kubectl apply -k k8s/secrets/
 
 # 6. Deploy all services
-kubectl apply -k k8s/
+kubectl apply -k k8s/services/
+kubectl apply -f k8s/network-policy.yaml
+kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/auth-ingress.yaml
+kubectl apply -f k8s/minio-ingress.yaml
 # Wait for all 12 pods → 1/1 Running
 
 # 7. Run web app
