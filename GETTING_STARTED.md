@@ -282,6 +282,10 @@ kubectl port-forward -n miniproject svc/keycloak-http 8080:8080
 Keycloak admin UI is now available at: **http://localhost:8080**  
 Admin credentials: **username: `admin`** / **password: `admin`**
 
+> Runtime user login path (web app OIDC flow) should use ingress over HTTPS:
+> **https://miniproject.local/auth**
+> This prevents browser cookie-policy failures during Keycloak redirect callbacks.
+
 ### 7b. Create the Realm, Roles, and Client
 
 The setup script uses `kcadm.sh` inside the Keycloak pod. Run commands in the terminal where you have access to the cluster:
@@ -427,6 +431,28 @@ If cert-manager CRDs are installed (`certificates.cert-manager.io`, `clusterissu
 
 ```bash
 kubectl apply -f k8s/certificate.yaml
+```
+
+If cert-manager CRDs are **not** installed, create a local self-signed TLS secret so ingress can still serve HTTPS (recommended for stable Keycloak login cookies):
+
+```bash
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /tmp/miniproject.local.key \
+  -out /tmp/miniproject.local.crt \
+  -subj "/CN=miniproject.local" \
+  -addext "subjectAltName=DNS:miniproject.local"
+
+kubectl -n miniproject create secret tls miniproject-tls-secret \
+  --cert=/tmp/miniproject.local.crt \
+  --key=/tmp/miniproject.local.key \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Quick verification:
+
+```bash
+curl -I http://miniproject.local/auth/   # expect 308 redirect to https://...
+curl -k https://miniproject.local/auth/realms/miniproject/.well-known/openid-configuration
 ```
 
 Wait for all service pods to reach `Running`:
