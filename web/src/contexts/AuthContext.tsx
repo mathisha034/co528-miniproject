@@ -37,8 +37,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (!isMounted) return;
                 setIsAuthenticated(authenticated);
                 if (authenticated) {
-                    const profile = await keycloak.loadUserProfile();
-                    if (isMounted) setUser({ ...profile, sub: keycloak.tokenParsed?.sub });
+                    const token = keycloak.tokenParsed as Record<string, any> | undefined;
+                    const tokenUser = {
+                        sub: token?.sub,
+                        username: token?.preferred_username,
+                        firstName: token?.given_name,
+                        lastName: token?.family_name,
+                        email: token?.email,
+                    };
+
+                    if (isMounted) setUser(tokenUser);
+
+                    try {
+                        const profile = await keycloak.loadUserProfile();
+                        if (isMounted) setUser({ ...tokenUser, ...profile, sub: token?.sub });
+                    } catch (profileError) {
+                        // Some Keycloak setups block /account cross-origin; token claims are enough for UI identity.
+                        console.warn('Keycloak profile fetch failed; using token claims only', profileError);
+                    }
                 }
                 setIsInitialized(true);
             })

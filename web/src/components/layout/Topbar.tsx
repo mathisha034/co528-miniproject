@@ -10,7 +10,7 @@ import './Topbar.css';
 const SEARCH_HIDDEN_PATHS = ['/', '/profile', '/analytics', '/infra'];
 
 export const Topbar: React.FC = () => {
-    const { user, hasRole } = useAuth();
+    const { user, hasRole, isInitialized, isAuthenticated } = useAuth();
     const { query, setQuery } = useSearch();
     const navigate = useNavigate();
     const location = useLocation();
@@ -34,15 +34,24 @@ export const Topbar: React.FC = () => {
     const avatarInitial = displayName.charAt(0).toUpperCase() || 'U';
 
     useEffect(() => {
+        // Clear search query on every page navigation
+        setQuery('');
+
+        if (!isInitialized || !isAuthenticated) {
+            return;
+        }
+
         // Re-fetch profile name on every route change so edits are reflected immediately
         api.get('/api/v1/user-service/users/me')
             .then(res => { if (res.data?.name) setProfileName(res.data.name); })
             .catch(() => { });
-        // Clear search query on every page navigation
-        setQuery('');
-    }, [location.pathname]);
+    }, [location.pathname, isInitialized, isAuthenticated, setQuery]);
 
     useEffect(() => {
+        if (!isInitialized || !isAuthenticated) {
+            return;
+        }
+
         // Fetch unread notification count
         const fetchCount = () => {
             api.get('/api/v1/notification-service/notifications/count')
@@ -52,7 +61,7 @@ export const Topbar: React.FC = () => {
         fetchCount();
         const interval = setInterval(fetchCount, 30000);
         return () => clearInterval(interval);
-    }, []);
+    }, [isInitialized, isAuthenticated]);
 
     return (
         <header className="topbar">

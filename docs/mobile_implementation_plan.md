@@ -62,6 +62,14 @@ The UI/UX must be state-of-the-art, drawing inspiration from **LinkedIn** (profe
   - *Unit:* Map the Notification JSON schema to Dart models correctly. 
   - *Integration:* Trigger a mock 'post liked' event, verify the red dot indicator appears on the bottom nav bar.
 
+### Phase 6 — Admin Analytics & Infrastructure Status 
+**Objective:** Ensure feature parity with the Web Dashboard for administrators.
+- **6.1 Analytics Dashboard**: Dedicated admin screen showing key metrics (Active Users, New Posts) using `fl_chart` for data visualization of daily user signups and popular content.
+- **6.2 Infrastructure Overview**: Pull-to-refresh list mapping the health endpoints of the microservices to display real-time Kubernetes Pod latencies and system states.
+- **🧪 Testing**: 
+  - *Unit:* Ensure RBAC (Role-Based Access Control) prevents non-admins from routing to Phase 6 screens.
+  - *Integration:* Verify API polling handles 503 Service Unavailable gracefully if the analytics-service goes down.
+
 ---
 
 ## 🔬 Testing Plan Summary

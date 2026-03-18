@@ -35,6 +35,13 @@ This plan supersedes v4.2. Key changes from the previous version:
 | 10 | Final Integration & Stability | 🔴 Blocked on Phase 9 |
 | 11 | Documentation & Report | 🟡 Partial (services documented; web app missing) |
 
+### SPECIAL NOTE (2026-03-18) — Security/Authentication Ingress Update
+
+- **From (existing implementation):** Login/auth commonly accessed via HTTP ingress (`http://miniproject.local/auth`).
+- **To (new implementation):** TLS-enabled HTTPS ingress with forced SSL redirects (`https://miniproject.local/auth`) using cert-manager certificate secret `miniproject-tls-secret`.
+- **Why this modification was required:** Keycloak session cookies are issued with secure attributes and browser policies can break login callback continuity on non-HTTPS auth flows, resulting in `Cookie not found` during authentication.
+- **Compatibility note:** Frontend Keycloak config remains `url: '/auth'`; protocol is now controlled by ingress, so no environment-specific frontend hardcoding is needed.
+
 ---
 
 ## Proposed Changes

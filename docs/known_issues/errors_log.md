@@ -20,6 +20,48 @@ When encountering and resolving a new issue, please log it here using the follow
 
 ## 🛑 Resolved Issues (Phase 9 E2E Testing)
 
+### 45. System Outage After Minikube Stop + Keycloak Realm Reset + Stale JWT Public Key
+- **Date Logged:** 2026-03-18
+- **Resolution Date:** 2026-03-18
+- **Component(s) Affected:** OS/Runtime Layer, Minikube/Kubernetes Control Plane, Keycloak Auth, jwt-secret, All Protected NestJS APIs, Frontend Auth Proxy
+- **Context / When it Happens:** Full verification run failed with timeouts and auth breakage after environment restart.
+- **Error Signature:**
+  - `kubectl` timeouts to `https://192.168.59.101:8443`
+  - `curl` timeout to `http(s)://miniproject.local`
+  - Keycloak token endpoint: `{"error":"Realm does not exist"}`
+  - Protected API 401: `Invalid or missing JWT token`
+  - Backup CronJob pod `ImagePullBackOff` for `mini_project-backup:v2`
+- **Root Cause:** Multi-layer failure chain:
+  1. Minikube VM was stopped (platform unreachable).
+  2. Keycloak restarted with a fresh DB state (miniproject realm/clients/users missing).
+  3. `jwt-secret` still contained an old Keycloak public key, so RS256 token verification failed.
+  4. `tests/e2e/setup_personas.sh` assumed a root Keycloak path and failed against `/auth` relative-path deployments.
+  5. Backup image was not present in active minikube Docker runtime.
+- **System Impact:** End-to-end login and dashboard flows were non-functional; protected APIs returned 401; operational backup job failed.
+- **Resolution / Fix:**
+  - Restarted minikube with the correct profile driver (`virtualbox`).
+  - Restored Keycloak realm, roles, and required clients (`react-web-app`, `e2e-test-client`).
+  - Patched `tests/e2e/setup_personas.sh` to auto-detect `/auth` base path.
+  - Recreated personas and regenerated JWT artifacts (`.e2e_*_token`, `.e2e_*_id`).
+  - Rotated `jwt-secret` public keys (`KEYCLOAK_PUBLIC_KEY`, `JWT_PUBLIC_KEY`) from live realm key and restarted all deployments.
+  - Built `mini_project-backup:v2` inside minikube Docker daemon and validated backup job completion.
+  - Verified backend health endpoints and protected endpoints return 200; verified frontend dev server and proxy auth/api routes return 200.
+- **Detailed Recovery Log:** `docs/known_issues/system_restore_2026-03-18.md`
+
+### 0. Keycloak Login Error: "Cookie not found. Please make sure cookies are enabled in your browser."
+- **Date Logged:** 2026-03-18
+- **Resolution Date:** 2026-03-18
+- **Component(s) Affected:** Keycloak Auth Flow, NGINX Ingress, React Web App Login
+- **Context / When it Happens:** Browser is redirected to Keycloak for login from the web app and returns with a Keycloak error page stating cookie was not found.
+- **Error Signature:** `Cookie not found. Please make sure cookies are enabled in your browser.`
+- **Root Cause:** Auth flow was being served over plain HTTP (`http://miniproject.local/auth`). Keycloak issues session cookies with `SameSite=None; Secure`. On non-HTTPS origins, modern browsers may not persist/send these secure cookies, causing session continuity failure during OIDC redirect callbacks.
+- **System Impact:** User login can fail intermittently or consistently depending on browser policy, even when backend services are healthy.
+- **Resolution / Fix:** Migrated ingress to HTTPS-first behavior using cert-manager certificate and TLS on all ingresses (`auth-ingress.yaml`, `ingress.yaml`, `minio-ingress.yaml`) with forced SSL redirect annotations:
+  - `nginx.ingress.kubernetes.io/ssl-redirect: "true"`
+  - `nginx.ingress.kubernetes.io/force-ssl-redirect: "true"`
+  - `spec.tls.hosts: [miniproject.local]` with `secretName: miniproject-tls-secret`
+  Kept frontend Keycloak URL as relative `/auth` so the app remains environment-agnostic and follows ingress protocol.
+
 ### 1. Frontend API Route Mismatch (404 Not Found)
 - **Date Logged:** 2026-03-08
 - **Resolution Date:** 2026-03-08

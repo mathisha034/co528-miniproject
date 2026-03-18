@@ -14,6 +14,8 @@ This document tracks the resolution progress of the pending known issues logged 
 - [x] Issue 14: CI/CD uses `npm ci` but `package-lock.json` is missing (Change `npm ci` to `npm install`)
 - [x] Issue 15: Analytics Service HPA CPU threshold inconsistency (Match 30% baseline)
 - [x] Issue 43: Kubernetes deployment image tag drift — Documented procedure: build inside `eval $(minikube docker-env)`, tag with explicit version, patch via `kubectl set image`, update YAML manifest. `k8s/services/feed-service/deployment.yaml` updated to `v8`.
+- [x] Issue 44: Keycloak login failure (`Cookie not found...`) under HTTP auth ingress — Migrated ingress to HTTPS-first with TLS (`miniproject-tls-secret`) and forced SSL redirects on `k8s/auth-ingress.yaml`, `k8s/ingress.yaml`, and `k8s/minio-ingress.yaml`. ✅ **Tested & Verified 2026-03-18** (HTTP `/auth` returns 308 to HTTPS, HTTPS OIDC metadata returns 200, HTTPS auth endpoint issues session cookies)
+- [x] Issue 45: Multi-layer outage recovery (minikube stopped, Keycloak realm missing, stale jwt-secret key, backup image pull failure, persona setup script path mismatch) — Restored cluster, reprovisioned Keycloak, rotated JWT key secret, patched `tests/e2e/setup_personas.sh` for `/auth`, restarted all deployments, rebuilt backup image, and revalidated protected APIs + frontend proxy paths. ✅ **Tested & Verified 2026-03-18**
 
 ## User Service
 - [x] Issue 4: Missing User Profile in MongoDB — 404 on `GET /me` for new Keycloak users (Fully resolved — JWT strategy fallback chain + `$or` upsert filter + clean `getMe()` auto-provisioning; see Issue 16 for technical detail)

@@ -126,6 +126,11 @@
 - [x] 4.4 Ingress routing (all 8 service routes)
 - [x] 4.5 Namespaces + Network Policies
 
+### SPECIAL NOTE (2026-03-18) — Auth Ingress Migration
+- Previous implementation: Keycloak auth flow commonly accessed via `http://miniproject.local/auth`.
+- New implementation: HTTPS-first ingress with TLS (`miniproject-tls-secret`) and forced SSL redirects on auth/api/minio ingresses.
+- Reason for change: fix browser session failure `Cookie not found...` caused by secure auth cookies on non-HTTPS flow.
+
 ---
 
 ## ✅ Phase 5 — Backup & Recovery *(DONE)*

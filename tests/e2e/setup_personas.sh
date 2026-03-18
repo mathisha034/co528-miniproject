@@ -14,11 +14,19 @@
 # ============================================================
 set -e
 
-KEYCLOAK="http://localhost:18080"
+KEYCLOAK_BASE="http://localhost:18080"
 REALM="miniproject"
 CLIENT="e2e-test-client"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
+
+# Keycloak in this project is commonly exposed with --http-relative-path=/auth.
+# Auto-detect and use the right base path to keep this script portable.
+if curl -sf "$KEYCLOAK_BASE/auth/realms/master/.well-known/openid-configuration" >/dev/null; then
+  KEYCLOAK="$KEYCLOAK_BASE/auth"
+else
+  KEYCLOAK="$KEYCLOAK_BASE"
+fi
 
 echo "================================================================"
 echo " DECP E2E — Persona Setup"

@@ -20,17 +20,22 @@ interface ServiceHealth {
 const SERVICES = ['user-service', 'feed-service', 'job-service', 'event-service', 'notification-service', 'research-service', 'analytics-service'];
 
 export const Dashboard: React.FC = () => {
-    const { user, hasRole } = useAuth();
+    const { user, hasRole, isInitialized, isAuthenticated } = useAuth();
     const [stats, setStats] = useState<StatData>({ users: null, posts: 0, jobs: 0, events: 0 });
     const [healthStatus, setHealthStatus] = useState<ServiceHealth[]>(
         SERVICES.map(name => ({ name, status: 'loading', latency: 0 }))
     );
     const [feedPreview, setFeedPreview] = useState<any[]>([]);
+    const isAdmin = hasRole('admin');
 
     useEffect(() => {
+        if (!isInitialized || !isAuthenticated) {
+            return;
+        }
+
         const now = new Date().toISOString();
 
-        if (hasRole('admin')) {
+        if (isAdmin) {
             // Admin: use analytics overview for exact DB counts
             api.get('/api/v1/analytics-service/analytics/overview')
                 .then(res => setStats({
@@ -44,7 +49,7 @@ export const Dashboard: React.FC = () => {
 
         // Non-admins: fetch counts directly from each service
         // (Admins already have exact counts from analytics overview above)
-        if (!hasRole('admin')) {
+        if (!isAdmin) {
             // Posts: limit=1 trick — totalPages with limit=1 equals total post count
             api.get('/api/v1/feed-service/feed?page=1&limit=1')
                 .then(res => {
@@ -91,7 +96,7 @@ export const Dashboard: React.FC = () => {
                     setHealthStatus(prev => prev.map(s => s.name === service ? { ...s, status: 'offline', latency: 0 } : s));
                 });
         });
-    }, []);
+    }, [isInitialized, isAuthenticated, isAdmin]);
 
     const displayName = user?.firstName || user?.username || 'there';
 
