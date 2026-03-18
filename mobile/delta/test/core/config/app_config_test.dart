@@ -29,7 +29,7 @@ void main() {
           isA<AppConfigException>().having(
             (e) => e.errors.first,
             'error',
-            contains('APP_ENV is required'),
+            contains('APP_ENV is required and must be one of: emulator, usb, device, release.'),
           ),
         ),
       );
@@ -151,6 +151,20 @@ void main() {
       final config = AppConfig.fromMap(env);
 
       expect(config.appEnvironment, AppEnvironment.emulator);
+      expect(config.requiresHttps, isFalse);
+    });
+
+    test('allows http in usb environment', () {
+      final env = validEnv(
+        appEnv: 'usb',
+        apiBaseUrl: 'http://127.0.0.1:8080/api/v1',
+        oidcDiscoveryUrl:
+            'http://127.0.0.1:8081/realms/miniproject/.well-known/openid-configuration',
+      );
+
+      final config = AppConfig.fromMap(env);
+
+      expect(config.appEnvironment, AppEnvironment.usb);
       expect(config.requiresHttps, isFalse);
     });
   });

@@ -1,13 +1,20 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum AppEnvironment {
   emulator,
+  // USB-only debug mode used with `adb reverse`.
+  // Keep this separate so it can be removed cleanly when robust device mode is the only path.
+  usb,
   device,
   release,
 }
 
 final appConfigProvider = Provider<AppConfig>((ref) {
-  return AppConfig.fromEnvironment();
+  final config = AppConfig.fromEnvironment();
+  _logResolvedConfig(config, source: 'dart-define');
+  return config;
 });
 
 class AppConfigException implements Exception {
@@ -63,7 +70,9 @@ class AppConfig {
         defaultValue: '',
       ),
       appEnvironment: _parseEnvironment(
-        const String.fromEnvironment('APP_ENV', defaultValue: ''),
+        // Defaults to device for safety. USB/emulator/device/release should still be
+        // explicitly set in run profiles to avoid ambiguous behavior.
+        const String.fromEnvironment('APP_ENV', defaultValue: 'device'),
       ),
     ).validated();
   }
@@ -138,13 +147,15 @@ class AppConfig {
     switch (value.trim().toLowerCase()) {
       case 'emulator':
         return AppEnvironment.emulator;
+      case 'usb':
+        return AppEnvironment.usb;
       case 'device':
         return AppEnvironment.device;
       case 'release':
         return AppEnvironment.release;
       default:
         throw AppConfigException([
-          'APP_ENV is required and must be one of: emulator, device, release.',
+          'APP_ENV is required and must be one of: emulator, usb, device, release.',
         ]);
     }
   }
@@ -156,4 +167,17 @@ class AppConfig {
   static bool _isValidUri(Uri? uri) {
     return uri != null && uri.hasScheme;
   }
+}
+
+void _logResolvedConfig(AppConfig config, {required String source}) {
+  final api = Uri.tryParse(config.apiBaseUrl);
+  final discovery = Uri.tryParse(config.oidcDiscoveryUrl);
+
+  developer.log(
+    'Resolved AppConfig from $source: env=${config.appEnvironment.name}, '
+    'requiresHttps=${config.requiresHttps}, '
+    'api=${api?.scheme ?? 'invalid'}://${api?.host ?? 'invalid'}:${api?.port ?? ''}, '
+    'oidc=${discovery?.scheme ?? 'invalid'}://${discovery?.host ?? 'invalid'}:${discovery?.port ?? ''}',
+    name: 'delta.app_config',
+  );
 }
