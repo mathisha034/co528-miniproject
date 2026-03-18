@@ -7,6 +7,7 @@ import keycloak, { keycloakInitPromise } from '../lib/keycloak';
 interface AuthContextType {
     isAuthenticated: boolean;
     isInitialized: boolean;
+    authError: string | null;
     user: any;
     login: () => void;
     logout: () => void;
@@ -16,6 +17,7 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType>({
     isAuthenticated: false,
     isInitialized: false,
+    authError: null,
     user: null,
     login: () => { },
     logout: () => { },
@@ -27,6 +29,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isInitialized, setIsInitialized] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [authError, setAuthError] = useState<string | null>(null);
     const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
@@ -60,7 +63,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             })
             .catch((error) => {
                 console.error('Keycloak init failed', error);
-                if (isMounted) setIsInitialized(true);
+                if (isMounted) {
+                    setAuthError(error instanceof Error ? error.message : 'Authentication initialization failed.');
+                    setIsInitialized(true);
+                }
             });
 
         return () => {
@@ -73,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const hasRole = (role: string) => keycloak.hasResourceRole(role) || keycloak.hasRealmRole(role);
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, isInitialized, user, login, logout, hasRole }}>
+        <AuthContext.Provider value={{ isAuthenticated, isInitialized, authError, user, login, logout, hasRole }}>
             {children}
         </AuthContext.Provider>
     );

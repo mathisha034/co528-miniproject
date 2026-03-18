@@ -315,8 +315,8 @@ $KC create clients -r miniproject \
   -s enabled=true \
   -s publicClient=true \
   -s directAccessGrantsEnabled=true \
-  -s 'redirectUris=["http://miniproject.local/*","http://localhost:5173/*"]' \
-  -s 'webOrigins=["+"]'
+  -s 'redirectUris=["https://miniproject.local/*","https://localhost:5174/*"]' \
+  -s 'webOrigins=["https://miniproject.local","https://localhost:5174"]'
 
 # Create the test client used by E2E scripts
 $KC create clients -r miniproject \
@@ -532,15 +532,19 @@ cd web
 # Install dependencies (first time only)
 npm install
 
-# Start the dev server
-npm run dev
+# Start secure dev server for auth/login flows
+npm run dev:https
 ```
 
-Open your browser at: **http://localhost:5173**
+Open your browser at: **https://localhost:5174**
+
+Note:
+- `npm run dev` (HTTP on port 5173) is still fine for non-auth UI work.
+- For Keycloak login-required flows, always use `npm run dev:https`.
 
 The Vite dev server proxies:
-- `/api/v1/*` → `http://miniproject.local` (all service API calls)
-- `/auth/*` → `http://miniproject.local` (Keycloak auth flows)
+- `/api/v1/*` → `https://miniproject.local` (all service API calls)
+- `/auth/*` → `https://miniproject.local` (Keycloak auth flows)
 
 Log in with any of the test users created in Step 7c:
 
@@ -837,8 +841,8 @@ kubectl apply -f k8s/auth-ingress.yaml
 kubectl apply -f k8s/minio-ingress.yaml
 # Wait for all 12 pods → 1/1 Running
 
-# 7. Run web app
-cd web && npm install && npm run dev   # http://localhost:5173
+# 7. Run web app (secure auth flow)
+cd web && npm install && npm run dev:https   # https://localhost:5174
 
 # 8. Run E2E tests
 cd tests/e2e && bash setup_personas.sh && cd ../..

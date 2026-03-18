@@ -20,6 +20,29 @@ When encountering and resolving a new issue, please log it here using the follow
 
 ## 🛑 Resolved Issues (Phase 9 E2E Testing)
 
+### 46. Localhost Dev Login Callback Breakage (`cookie_not_found`) Under HTTP Origin
+- **Date Logged:** 2026-03-18
+- **Resolution Date:** 2026-03-18
+- **Component(s) Affected:** Web Dev Runtime (Vite), Keycloak Client Config (`react-web-app`), Frontend Auth Initialization
+- **Context / When it Happens:** Browser login from `http://localhost:5173` returned Keycloak callback failure despite valid e2e credentials.
+- **Error Signature:** Keycloak `LOGIN_ERROR` with `error="cookie_not_found"`; credentials still produced token endpoint HTTP 200.
+- **Root Cause:** Auth callback started from insecure localhost HTTP origin while Keycloak session cookies required secure callback continuity.
+- **System Impact:** Interactive browser login failed even with valid credentials, blocking dashboard navigation.
+- **Resolution / Fix:**
+  - Added HTTPS dev mode in Vite (`npm run dev:https`) on `https://localhost:5174`.
+  - Hardened Keycloak `react-web-app` client to HTTPS redirect/origin set:
+    - `https://localhost:5174/*`
+    - `https://miniproject.local/*`
+  - Removed HTTP localhost callback path from login-required flow by rejecting `http://localhost:5173` redirect.
+  - Added frontend insecure-origin auth guard with actionable message to prevent broken loop on HTTP localhost.
+  - Final browser fix: switched frontend Keycloak URL from proxied relative `/auth` to explicit `https://miniproject.local/auth` (configurable via `VITE_KEYCLOAK_URL`) to avoid cookie domain split between localhost proxy and absolute Keycloak login-actions host.
+- **Verification Evidence:**
+  - Secure callback with `e2e_admin`: `302` redirect to `https://localhost:5174/?code=...`.
+  - Repeated callback stability: `3/3` passes for `e2e_admin`.
+  - Multi-user secure callback passes: `e2e_student`, `e2e_alumni`.
+  - Protected API checks post-auth token: all three e2e users return `200` on `/api/v1/user-service/users/me`.
+  - Post-fix immediate Keycloak log window (`--since=1m`) after focused secure callback: no new `cookie_not_found`.
+
 ### 45. System Outage After Minikube Stop + Keycloak Realm Reset + Stale JWT Public Key
 - **Date Logged:** 2026-03-18
 - **Resolution Date:** 2026-03-18

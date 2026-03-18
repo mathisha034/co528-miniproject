@@ -157,3 +157,135 @@ Interpretation:
    - realm existence
    - protected API call with persona token
    - frontend proxy auth endpoint
+
+## V6 Stage Gate Baseline Snapshot (Auth Session Stability)
+
+- **Captured:** 2026-03-18
+- **Purpose:** Mandatory pre-implementation test gate for `implementation_plan_v6_auth_session_stability.md`
+
+### Baseline Test Results
+
+1. Credential token baseline (Keycloak token endpoint):
+  - `e2e_student/pass123` -> HTTP 200
+  - `e2e_alumni/pass123` -> HTTP 200
+  - `e2e_admin/pass123` -> HTTP 200
+
+2. Origin protocol baseline:
+  - `http://localhost:5173` -> HTTP 200
+  - `https://localhost:5173` -> TLS failure (`wrong version number`)
+
+3. Error signature baseline in Keycloak logs:
+  - Repeated `LOGIN_ERROR` with `error="cookie_not_found"` in recent log window.
+
+### Baseline Conclusion
+
+- Credential validity is confirmed.
+- Browser callback session continuity is still failing on insecure localhost origin.
+- Secure-origin enforcement and auth-flow hardening are required before full browser smoke verification.
+
+## V6 Implementation Evidence - Task Groups B/C/D
+
+- **Captured:** 2026-03-18
+- **Objective:** Apply HTTPS-first localhost auth flow and prevent insecure-origin login loops.
+
+### B. Secure Dev Origin Implementation
+
+Changes applied:
+- `web/vite.config.ts`
+  - Added HTTPS dev mode toggle (`VITE_DEV_HTTPS=1`)
+  - Secure dev port switched to `5174` when HTTPS mode is enabled
+  - Added basic SSL plugin activation in HTTPS mode
+- `web/package.json`
+  - Added script: `dev:https`
+  - Added dependency: `@vitejs/plugin-basic-ssl`
+
+Validation:
+- `https://localhost:5174` -> HTTP 200 (with `curl -k`)
+- Web build succeeds after changes (`npm run build`)
+
+### C. Keycloak Client Hardening
+
+Changes applied to client `react-web-app`:
+- `redirectUris` set to:
+  - `https://localhost:5174/*`
+  - `https://miniproject.local/*`
+- `webOrigins` set to:
+  - `https://localhost:5174`
+  - `https://miniproject.local`
+- `rootUrl` set to `https://localhost:5174`
+
+Validation:
+- Auth request with `redirect_uri=http://localhost:5173/` -> HTTP 400 (rejected)
+- Auth request with `redirect_uri=https://localhost:5174/` -> HTTP 200 (accepted)
+
+### D. Frontend Guardrails
+
+Changes applied:
+- `web/src/lib/keycloak.ts`
+  - Added insecure localhost origin gate to prevent Keycloak init on HTTP localhost
+  - Added actionable remediation message for developers
+- `web/src/contexts/AuthContext.tsx`
+  - Added `authError` state propagation
+- `web/src/components/ProtectedRoute.tsx`
+  - Added explicit auth setup guidance UI when guard blocks insecure-origin auth init
+
+Status:
+- Task Groups B, C, and D completed.
+- Remaining work: full browser smoke verification and post-change cookie_not_found regression check (Task Group E/G).
+
+## V6 Final Browser Verification (Task Groups E/G Completion)
+
+- **Captured:** 2026-03-18
+- **Method:** Headless Chromium (Playwright)
+
+### Additional Root Cause Found During Browser Verification
+
+Even after HTTPS localhost enablement, browser login initially still failed with `cookie_not_found`.
+
+Observed behavior:
+- Login initiated on proxied host `https://localhost:5174/auth/...`.
+- Credential submit moved to absolute Keycloak action URL on `https://miniproject.local/auth/login-actions/authenticate?...`.
+
+Impact:
+- Session cookie continuity broke across host boundary (`localhost` -> `miniproject.local`) during login-actions step.
+
+Final correction:
+- Updated frontend Keycloak configuration to use explicit host URL:
+  - `VITE_KEYCLOAK_URL` (default `https://miniproject.local/auth`)
+- This keeps Keycloak auth pages and login-actions on the same host origin for session cookie consistency.
+
+### Browser-Driven Positive Flow Results
+
+1. Secure login callback:
+- `e2e_admin` login redirects successfully to `https://localhost:5174/?code=...`.
+
+2. Route smoke pass (authenticated):
+- `/` -> pass
+- `/profile` -> pass
+- `/notifications` -> pass
+- `/feed` -> pass
+- `/jobs` -> pass
+- `/events` -> pass
+
+3. Stability checks:
+- `e2e_admin` secure callback repeated 3 times -> `3/3` pass.
+- `e2e_student` secure callback -> pass.
+- `e2e_alumni` secure callback -> pass.
+
+4. Protected API verification (post-auth tokens):
+- `/api/v1/user-service/users/me` -> 200 for `e2e_student`, `e2e_alumni`, `e2e_admin`.
+
+### Browser-Driven Negative Path Results
+
+Using a fresh HTTP runtime (`http://localhost:5175`):
+- Insecure-origin auth guard message is displayed (`Authentication Setup Required`).
+- No redirect loop to `/auth/...` observed.
+
+### Final Log Window Check
+
+- Focused secure callback run followed by immediate 1-minute Keycloak log check:
+  - No `cookie_not_found` and no new `LOGIN_ERROR` entries.
+
+Conclusion:
+- Task Groups E and G criteria are satisfied for secure-origin flow.
+- Cookie-not-found regression is controlled with direct Keycloak host configuration and HTTPS-first dev/runtime policy.

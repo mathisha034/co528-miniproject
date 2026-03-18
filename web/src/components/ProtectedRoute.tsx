@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
-    const { isAuthenticated, isInitialized, hasRole } = useAuth();
+    const { isAuthenticated, isInitialized, authError, hasRole } = useAuth();
 
     // No manual login() call needed — AuthContext uses onLoad:'login-required'
     // which redirects to Keycloak automatically if not authenticated, and
@@ -26,6 +26,18 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles 
     }
 
     if (!isAuthenticated) {
+        if (authError) {
+            return (
+                <div className="loading-screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'var(--font-body)' }}>
+                    <div style={{ textAlign: 'center', maxWidth: 680, padding: '0 1rem' }}>
+                        <h2 style={{ marginBottom: '0.8rem' }}>Authentication Setup Required</h2>
+                        <p style={{ color: 'var(--text-secondary, #555)', marginBottom: '0.6rem' }}>{authError}</p>
+                        <p style={{ color: 'var(--text-secondary, #555)' }}>Current origin must be HTTPS for Keycloak callback cookies.</p>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="loading-screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'var(--font-body)' }}>
                 <div style={{ textAlign: 'center' }}>
