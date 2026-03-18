@@ -1,61 +1,64 @@
 # Running the DECP Mobile Application
 
-Follow these steps to successfully launch and test the Flutter mobile application alongside your existing Kubernetes backend infrastructure. 
+This guide uses runtime configuration via dart-define values. Do not hardcode API or OIDC URLs in source code.
 
-### Prerequisites
-Before running the mobile app, ensure your backend API cluster is running and accessible. 
-
-1. Ensure Kubernetes/Docker services are running:
-   ```bash
-   kubectl get pods -A
-   ```
-2. Ensure you have the Flutter SDK configured. The tests we just ran show your Flutter environment is completely healthy!
-
----
-
-### Method A: Running Natively on Linux (Fastest for testing)
-
-Since you are running Ubuntu desktop natively, testing the app as a compiled Linux desktop application is typically the fastest and most reliable way to check the UI without dealing with Android emulation network bridging.
-
-1. Open a new terminal.
-2. Navigate to the mobile directory:
+## Prerequisites
+1. Backend ingress and Keycloak are reachable.
+2. Flutter SDK and Android tooling are installed.
+3. Mobile project path:
    ```bash
    cd /home/gintoki/Semester07/CO528/mini_project/mobile/delta
    ```
-3. Run the App:
-   ```bash
-   flutter run -d linux
-   ```
-*This command will compile and launch the application directly on your workstation window.*
 
----
+## Required Runtime Keys
+Every mobile run must provide:
+- APP_ENV
+- API_BASE_URL
+- OIDC_DISCOVERY_URL
+- OIDC_CLIENT_ID
+- OIDC_REDIRECT_URI
 
-### Method B: Running on an Android Emulator
+## Android Emulator Profile
+Use this for AVD testing. HTTP is allowed only in emulator mode.
 
-If you want the true mobile experience, you will need to boot an Android Virtual Device (AVD).
+```bash
+flutter run \
+  -d emulator-5554 \
+  --dart-define=APP_ENV=emulator \
+  --dart-define=API_BASE_URL=http://10.0.2.2:8080/api/v1 \
+  --dart-define=OIDC_DISCOVERY_URL=http://10.0.2.2:8081/realms/miniproject/.well-known/openid-configuration \
+  --dart-define=OIDC_CLIENT_ID=mobile-client \
+  --dart-define=OIDC_REDIRECT_URI=miniproject://login-callback
+```
 
-1. First, check available emulators:
-   ```bash
-   flutter emulators
-   ```
-2. Start an emulator (replace `nexus_6` with your emulator name from step 1):
-   ```bash
-   flutter emulators --launch <emulator_name>
-   ```
-3. Open a new terminal and navigate to the mobile directory:
-   ```bash
-   cd /home/gintoki/Semester07/CO528/mini_project/mobile/delta
-   ```
-4. Run the app targetting Android:
-   ```bash
-   flutter run
-   ```
+## Physical Android Device Profile
+Use this for real phones. HTTPS is mandatory.
 
-### ⚠️ Important Note for Android Emulators!
-Your app relies on networking queries sent to `http://miniproject.local/api/v1` (as mapped in the app interceptor configurations).
-By default, an Android emulator uses a virtual router (`10.0.2.2`) which points to your Host's localhost loopback. The emulator **does not** automatically resolve local `/etc/hosts` DNS overrides like `miniproject.local`.
+```bash
+flutter run \
+  -d R52XA09G67W \
+  --dart-define=APP_ENV=device \
+  --dart-define=API_BASE_URL=https://miniproject.local/api/v1 \
+  --dart-define=OIDC_DISCOVERY_URL=https://miniproject.local/auth/realms/miniproject/.well-known/openid-configuration \
+  --dart-define=OIDC_CLIENT_ID=mobile-client \
+  --dart-define=OIDC_REDIRECT_URI=miniproject://login-callback
+```
 
-If you test using Android, you have three options to fix the API routing:
-1. **Network Override:** Execute your API networking queries explicitly against the emulator host loopback `10.0.2.2` within the `/mobile/delta/lib/core/network` interceptors.
-2. **DNS Setup:** Update the emulator's proxy routing to inject standard host `/etc/resolv.conf` rules.
-3. **Just deploy to Linux Desktop instead!** (Method A is far simpler because it shares your machine's DNS resolution exactly).
+If miniproject.local is not resolvable/trusted by the phone, use an HTTPS tunnel/domain that the phone can reach and trust, then replace API_BASE_URL and OIDC_DISCOVERY_URL accordingly.
+
+## Quick Validation Checklist
+1. Login flow opens browser and returns to app.
+2. Login does not throw AppAuth HTTP/HTTPS exception.
+3. Protected API call succeeds after login.
+4. Logout clears session and returns to login screen.
+
+## Troubleshooting
+1. Error: only https connections are permitted
+   - Cause: OIDC discovery URL is HTTP while APP_ENV is device/release.
+   - Fix: provide HTTPS OIDC_DISCOVERY_URL.
+2. Browser login succeeds but app callback fails
+   - Cause: redirect URI mismatch between app and Keycloak client.
+   - Fix: ensure OIDC_REDIRECT_URI matches mobile client settings and Android scheme.
+3. Host not reachable from phone
+   - Cause: local hostnames not resolvable on device network.
+   - Fix: use routable HTTPS hostname or tunnel.

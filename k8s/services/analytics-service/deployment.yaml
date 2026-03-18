@@ -28,7 +28,7 @@ spec:
             capabilities:
               drop:
                 - ALL
-          image: analytics-service:v4
+          image: mini_project-analytics-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3008

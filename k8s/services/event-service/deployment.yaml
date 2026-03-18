@@ -28,7 +28,7 @@ spec:
             capabilities:
               drop:
                 - ALL
-          image: event-service:v3
+          image: mini_project-event-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3004

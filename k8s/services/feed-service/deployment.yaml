@@ -28,7 +28,7 @@ spec:
             capabilities:
               drop:
                 - ALL
-          image: feed-service:v11
+          image: mini_project-feed-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3002

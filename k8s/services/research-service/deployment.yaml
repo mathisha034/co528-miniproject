@@ -28,7 +28,7 @@ spec:
             capabilities:
               drop:
                 - ALL
-          image: research-service:v8
+          image: mini_project-research-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3007
