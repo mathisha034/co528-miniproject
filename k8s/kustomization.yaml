@@ -6,7 +6,7 @@ resources:
   - secrets/
   - infra/
   - services/
-  - certificate.yaml
+  # - certificate.yaml  # requires cert-manager CRD — skip for local dev
   - ingress.yaml
   - auth-ingress.yaml
   - minio-ingress.yaml
